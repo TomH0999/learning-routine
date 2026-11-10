@@ -3,18 +3,63 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Routine d'apprentissage</title>
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0a0a0a"><link rel="icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#050507"><link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="style.css">
 </head><body>
-<header><div class="logo"><img src="icon.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.2.0</span></header>
+<header><div class="logo"><img src="icon.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.3.0</span></header>
 <nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
 <main>
 <section id="today">
-  <div id="dayStatus" class="card"></div>
-  <div class="card"><h3>Chrono du jour</h3><div id="timer">60:00</div><div class="bar"><i id="prog"></i></div>
+  <div class="hero">
+    <canvas id="stars"></canvas>
+    <div class="hud tl">SYS_TIME <span id="clock">--:--:--</span><br>NODE // PARIS</div>
+    <div class="hud tr">&gt;RENDERING...<br><span id="pct">0</span>%</div>
+    <svg class="orb" viewBox="0 0 400 400" aria-hidden="true">
+      <defs>
+        <radialGradient id="core" cx="50%" cy="45%" r="55%"><stop offset="0" stop-color="#ff4d5e" stop-opacity=".9"/><stop offset=".45" stop-color="#b3001b" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <linearGradient id="beam" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff2a3d" stop-opacity="0"/><stop offset=".5" stop-color="#ff2a3d" stop-opacity=".9"/><stop offset="1" stop-color="#ff2a3d" stop-opacity="0"/></linearGradient>
+      </defs>
+      <circle cx="200" cy="200" r="190" fill="url(#core)"/>
+      <g class="spin-slow" fill="none" stroke="#ff2a3d" stroke-opacity=".35" filter="url(#glow)">
+        <circle cx="200" cy="200" r="170" stroke-dasharray="2 8"/>
+        <circle cx="200" cy="200" r="150" stroke-dasharray="60 14 4 14" stroke-width="2"/>
+      </g>
+      <g class="globe" fill="none" stroke="#ff2a3d" stroke-width="1.2" filter="url(#glow)">
+        <circle cx="200" cy="200" r="110" stroke-width="2"/>
+        <ellipse cx="200" cy="200" rx="110" ry="38"/><ellipse cx="200" cy="200" rx="110" ry="75"/>
+        <ellipse class="mer m1" cx="200" cy="200" rx="30" ry="110"/><ellipse class="mer m2" cx="200" cy="200" rx="70" ry="110"/><ellipse class="mer m3" cx="200" cy="200" rx="100" ry="110"/>
+        <path d="M90 200H310M200 90V310" stroke-opacity=".5"/>
+      </g>
+      <g class="spin-rev" fill="none" stroke="#29e0ff" stroke-width="1.5" filter="url(#glow)">
+        <ellipse cx="200" cy="200" rx="185" ry="52" transform="rotate(-22 200 200)" stroke-dasharray="120 30 6 30"/>
+        <circle r="5" fill="#29e0ff"><animateMotion dur="7s" repeatCount="indefinite" path="M15 200a185 52 0 1 0 370 0a185 52 0 1 0 -370 0" rotate="auto"/></circle>
+      </g>
+      <g fill="#ff2a3d" filter="url(#glow)"><rect x="46" y="70" width="14" height="14" class="blink"/><rect x="330" y="300" width="10" height="10" class="blink d2"/><rect x="318" y="86" width="6" height="6"/><rect x="72" y="318" width="8" height="8" class="blink d3"/></g>
+      <rect x="196" y="0" width="8" height="400" fill="url(#beam)" class="scan"/>
+      <g font-family="JetBrains Mono,monospace" font-size="10" fill="#ff8a95"><text x="300" y="196">X_48.85</text><text x="300" y="210">Y_02.35</text></g>
+    </svg>
+    <div class="hero-txt">
+      <p class="kicker">/01 — Learning protocol</p>
+      <h1 class="glitch" data-t="LEARN.">LEARN.</h1>
+      <h1 class="glitch outline" data-t="EVERY DAY.">EVERY DAY.</h1>
+      <p class="tag">Une heure. Chaque jour. <b>Aucune excuse.</b></p>
+      <div id="heroStatus" class="hero-status"></div>
+      <button class="big" id="heroGo">Lancer la session</button>
+    </div>
+    <a class="scroll-cue" href="#dash">Scroll ↓</a>
+  </div>
+  <div id="dayStatus" class="card reveal"></div>
+  <div class="card reveal" id="timerCard"><h3>Chrono du jour</h3><div id="timer">60:00</div><div class="bar"><i id="prog"></i></div>
   <p class="hint">Le chrono ne s'écoule que lorsque le mode « Note du cours du jour » est ouvert et l'app au premier plan.</p>
   <button id="startNote" class="big">Note du cours du jour</button></div>
-  <div id="upcoming" class="card"></div>
+  <h2 class="sec reveal" id="dash"><span>/02</span> Tableau de bord</h2>
+  <div class="stats" id="stats"></div>
+  <div class="card reveal"><h3>14 derniers jours</h3><div class="chart" id="chart"></div></div>
+  <div class="card reveal"><h3>Activité — 16 semaines</h3><div class="heat" id="heat"></div><p class="hint" id="heatLegend"></p></div>
+  <div class="card reveal" id="badges"></div>
+  <h2 class="sec reveal"><span>/03</span> Échéances</h2>
+  <div id="upcoming" class="card reveal"></div>
 </section>
 <section id="note" hidden>
   <div class="row"><span id="noteTimer" class="pill">60:00</span><button id="closeNote">Fermer</button></div>

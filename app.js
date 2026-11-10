@@ -1,4 +1,4 @@
-import { skipReason, parisToday, isImportant } from "./skip.js";
+import { skipReason, parisToday, isImportant, addDays } from "./skip.js";
 const C = window.LR_CONFIG, GOAL = C.goalMinutes * 60;
 const $ = (s) => document.querySelector(s);
 const K = { notes: "lr_notes", prog: "lr_progress", auth: "lr_auth", hw: "lr_homework", topic: "lr_topic", done: "lr_done_sent", remote: "lr_progress_remote", dev: "lr_device", cur: "lr_sync_cursor" };
@@ -13,6 +13,7 @@ let current = null; // id de la note en cours d'édition
 
 // ---------- Navigation ----------
 function show(v) {
+  window.scrollTo(0, 0);
   for (const s of document.querySelectorAll("main>section")) s.hidden = s.id !== v;
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   $("nav").hidden = v === "note";
@@ -49,9 +50,12 @@ function renderToday() {
   $("#dayStatus").innerHTML = why
     ? `<b>// Jour sauté</b> — veille de « ${esc(why.title)} » (${esc(why.type)}). Révise plutôt ça !`
     : p >= GOAL ? "[OK] Apprentissage du jour terminé." : "> Objectif : 1h d'apprentissage aujourd'hui.";
+  $("#heroStatus").innerHTML = why ? `<i class="dot"></i> JOUR SAUTÉ — révise « ${esc(why.title)} »` : p >= GOAL ? '<i class="dot ok"></i> SESSION DU JOUR VALIDÉE' : `<i class="dot"></i> ${Math.ceil((GOAL - p) / 60)} MIN RESTANTES AUJOURD'HUI`;
+  renderStats(hw);
   const up = hw.filter((h) => isImportant(h) && h.dueDate >= d).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 6);
   $("#upcoming").innerHTML = "<h3>Prochaines échéances importantes</h3>" + (up.length ? up.map((h) => `<div><span style="color:var(--ac)">▸</span> ${esc(h.dueDate)} — ${esc(h.title)} <span class="hint">(${esc(h.type)})</span></div>`).join("") : '<p class="hint">Aucune (ou non synchronisé : voir Réglages).</p>');
 }
+$("#heroGo").onclick = () => $("#startNote").click();
 $("#startNote").onclick = () => {
   const notes = load(K.notes, []);
   let n = notes.find((x) => x.date === today() && !x.deleted);
@@ -70,6 +74,76 @@ function saveNote() {
 }
 ["#nTitle", "#nSubject", "#nContent"].forEach((s) => $(s).addEventListener("input", saveNote));
 $("#closeNote").onclick = () => { saveNote(); current = null; show("today"); };
+
+// ---------- Tableau de bord ----------
+function computeStats(hw) {
+  const own = load(K.prog, {}), rem = load(K.remote, {}), d0 = today();
+  const dates = [...new Set([...Object.keys(own), ...Object.keys(rem), ...liveNotes().map((n) => n.date)])].filter(Boolean).sort();
+  const sec = (d) => progress(d), done = (d) => sec(d) >= GOAL;
+  const notes = liveNotes().filter((n) => (n.content || "").trim() || (n.title || "").trim());
+  let total = 0; for (const d of dates) total += sec(d);
+  let eligible = 0, ok = 0, best = 0, run = 0;
+  if (dates.length) for (let d = dates[0]; d <= d0; d = addDays(d, 1)) {
+    const skip = !!skipReason(d, hw);
+    if (done(d)) { ok++; eligible++; run++; best = Math.max(best, run); }
+    else if (skip) continue;
+    else if (d === d0) continue;
+    else { eligible++; run = 0; }
+  }
+  let streak = 0;
+  for (let d = done(d0) ? d0 : addDays(d0, -1), i = 0; i < 400; d = addDays(d, -1), i++) { if (done(d)) streak++; else if (skipReason(d, hw)) continue; else break; }
+  const text = notes.map((n) => n.content || "").join("\n");
+  const lines = text.split("\n").filter((l) => l.trim()).length, words = (text.match(/\S+/g) || []).length;
+  const subj = {}; for (const n of notes) if (n.subject) subj[n.subject.trim()] = (subj[n.subject.trim()] || 0) + 1;
+  const top = Object.entries(subj).sort((a, b) => b[1] - a[1])[0];
+  const active = dates.filter((d) => sec(d) > 0).length;
+  const week = [...Array(7)].reduce((t, _, i) => t + sec(addDays(d0, -i)), 0);
+  const mins = total / 60, level = Math.floor(Math.sqrt(mins / 30)) + 1, lvlLo = (level - 1) ** 2 * 30, lvlHi = level ** 2 * 30;
+  return { dates, sec, done, lessons: notes.length, ok, pct: eligible ? Math.round((ok / eligible) * 100) : 0, total, lines, words, chars: text.length, streak, best, top, subjects: Object.keys(subj).length, avg: active ? total / active : 0, week, mins, level, lvlPct: ((mins - lvlLo) / (lvlHi - lvlLo)) * 100, toNext: Math.ceil(lvlHi - mins) };
+}
+const hm = (s) => { const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `${m}min`; };
+function renderStats(hw) {
+  const S = computeStats(hw);
+  const tiles = [
+    ["Leçons complétées", S.lessons, "", "▣"], ["Jours réussis", S.pct, "%", "◎"], ["Temps total", hm(S.total), null, "◷"],
+    ["Série actuelle", S.streak, " j", "▲"], ["Meilleure série", S.best, " j", "★"], ["Lignes écrites", S.lines, "", "≡"],
+    ["Mots écrits", S.words, "", "✎"], ["Moyenne / jour actif", hm(S.avg), null, "∿"], ["Cette semaine", hm(S.week), null, "▦"],
+    ["Matières explorées", S.subjects, "", "◇"], ["Matière favorite", S.top ? S.top[0] : "—", null, "♥"], ["Caractères tapés", S.chars, "", "⌨"]
+  ];
+  $("#stats").innerHTML = `<div class="tile lvl reveal"><div class="lvl-n">LVL <b data-count="${S.level}">0</b></div><div class="lvl-bar"><i style="width:${S.lvlPct.toFixed(1)}%"></i></div><p class="hint">${S.toNext} min avant le niveau ${S.level + 1}</p></div>` +
+    tiles.map(([l, v, u, ic], i) => `<div class="tile reveal" style="--d:${i * 40}ms"><span class="ic">${ic}</span><div class="v">${u === null ? esc(v) : `<b data-count="${v}">0</b>${u}`}</div><div class="l">${l}</div></div>`).join("");
+  const d0 = today(), days = [...Array(14)].map((_, i) => addDays(d0, i - 13));
+  $("#chart").innerHTML = days.map((d) => { const m = S.sec(d) / 60, h = Math.min(100, (m / 60) * 100); return `<div class="col${S.done(d) ? " ok" : ""}${skipReason(d, hw) ? " skip" : ""}" title="${d} : ${Math.round(m)} min"><i style="--h:${h}%"></i><span>${d.slice(8)}</span></div>`; }).join("");
+  const start = addDays(d0, -111); let cells = "";
+  for (let i = 0; i < 112; i++) { const d = addDays(start, i), r = S.sec(d) / GOAL, lv = r >= 1 ? 4 : r >= .66 ? 3 : r >= .33 ? 2 : r > 0 ? 1 : 0; cells += `<i class="h${lv}${skipReason(d, hw) ? " sk" : ""}" title="${d}"></i>`; }
+  $("#heat").innerHTML = cells; $("#heatLegend").innerHTML = 'Moins <i class="h0"></i><i class="h1"></i><i class="h2"></i><i class="h3"></i><i class="h4"></i> Plus · <i class="h0 sk"></i> jour sauté';
+  const B = [["Première leçon", S.lessons >= 1], ["Série de 3", S.best >= 3], ["Série de 7", S.best >= 7], ["Série de 30", S.best >= 30], ["10 h cumulées", S.mins >= 600], ["50 h cumulées", S.mins >= 3000], ["1 000 lignes", S.lines >= 1000], ["10 000 mots", S.words >= 10000], ["5 matières", S.subjects >= 5], ["100 % sur 7 j", [...Array(7)].every((_, i) => S.done(addDays(d0, -i - 1)) || skipReason(addDays(d0, -i - 1), hw))]];
+  $("#badges").innerHTML = `<h3>Succès — ${B.filter((b) => b[1]).length}/${B.length}</h3><div class="badges">${B.map(([n, ok]) => `<span class="badge${ok ? " on" : ""}">${ok ? "◆" : "◇"} ${n}</span>`).join("")}</div>`;
+  observeReveal();
+}
+function countUp(el) {
+  const to = Number(el.dataset.count); if (!isFinite(to)) return; const t0 = performance.now(), dur = 1200;
+  const step = (t) => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e).toLocaleString("fr-FR"); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+const io = "IntersectionObserver" in window ? new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); e.target.querySelectorAll("[data-count]").forEach(countUp); io.unobserve(e.target); } }), { threshold: .15 }) : null;
+function observeReveal() { document.querySelectorAll(".reveal:not(.in)").forEach((el) => (io ? io.observe(el) : el.classList.add("in"))); }
+
+// ---------- Animations de la page d'accueil ----------
+(function heroFx() {
+  const c = $("#stars"), x = c.getContext("2d"); let W, H, P = [];
+  const size = () => { W = c.width = c.offsetWidth * devicePixelRatio; H = c.height = c.offsetHeight * devicePixelRatio; P = [...Array(70)].map(() => ({ x: Math.random() * W, y: Math.random() * H, v: (.2 + Math.random() * .8) * devicePixelRatio, r: Math.random() * 1.6 * devicePixelRatio, c: Math.random() < .15 ? "41,224,255" : "255,42,61" })); };
+  size(); addEventListener("resize", size);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  (function loop() {
+    x.clearRect(0, 0, W, H);
+    for (const p of P) { p.y -= reduce ? 0 : p.v; if (p.y < 0) { p.y = H; p.x = Math.random() * W; } x.fillStyle = `rgba(${p.c},${.3 + p.r / 3})`; x.fillRect(p.x, p.y, p.r, p.r * 3); }
+    if (!$("#today").hidden) requestAnimationFrame(loop); else setTimeout(loop, 500);
+  })();
+  setInterval(() => { $("#clock").textContent = new Date().toLocaleTimeString("fr-FR"); }, 1000);
+  let n = 0; const t = setInterval(() => { n = Math.min(100, n + 3 + Math.round(Math.random() * 6)); $("#pct").textContent = n; if (n >= 100) clearInterval(t); }, 60);
+  addEventListener("scroll", () => { const y = scrollY; document.querySelector(".orb").style.transform = `translateY(${y * .25}px) rotate(${y * .03}deg)`; document.querySelector(".hero-txt").style.transform = `translateY(${y * .12}px)`; document.querySelector(".hero-txt").style.opacity = Math.max(0, 1 - y / 500); }, { passive: true });
+})();
 
 // ---------- Leçons ----------
 function renderList() {
