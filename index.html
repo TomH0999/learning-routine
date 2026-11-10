@@ -6,8 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#050507"><link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="style.css">
 </head><body>
-<header><div class="logo"><img src="icon-512.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.4.0</span></header>
-<nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
+<header><div class="logo"><img src="icon-512.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.5.0</span></header>
+<nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="topics">Sujets</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
 <main>
 <section id="today">
   <div class="hero">
@@ -63,15 +63,23 @@
 </section>
 <section id="note" hidden>
   <div class="row"><span id="noteTimer" class="pill">60:00</span><button id="closeNote">Fermer</button></div>
-  <input id="nTitle" placeholder="Titre de la leçon"><input id="nSubject" placeholder="Matière / cours">
+  <input id="nTitle" placeholder="Titre de la leçon"><input id="nSubject" list="topicList" placeholder="Sujet / matière"><datalist id="topicList"></datalist>
   <textarea id="nContent" placeholder="Tes notes..."></textarea><p class="hint" id="saved"></p>
 </section>
 <section id="notes" hidden>
+  <select id="qSubject"><option value="">Tous les sujets</option></select>
   <input id="q" placeholder="Rechercher par titre, matière ou contenu">
   <div class="row"><input id="qDate" type="date"><select id="sort">
   <option value="date-desc">Date ↓</option><option value="date-asc">Date ↑</option>
   <option value="title">Titre A→Z</option><option value="subject">Matière</option><option value="len">Longueur</option></select></div>
   <div id="list"></div>
+</section>
+<section id="topics" hidden>
+  <h2 class="sec"><span>/04</span> Sujets à étudier</h2>
+  <div class="stats" id="tSummary"></div>
+  <form id="tAdd" class="row"><input id="tName" placeholder="Nouveau sujet (ex : Récursivité, TCP/IP...)" autocomplete="off" style="margin:0"><button class="addbtn">Ajouter</button></form>
+  <select id="tFilter"><option value="todo">En cours</option><option value="done">Maîtrisés</option><option value="all">Tous</option></select>
+  <div id="tList"></div>
 </section>
 <section id="settings" hidden>
   <div class="card"><h3>Gestionnaire de devoirs</h3>
