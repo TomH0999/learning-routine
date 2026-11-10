@@ -1,0 +1,19 @@
+name: Rappel quotidien
+on:
+  schedule: [{ cron: "0 6-21 * * *" }]   # toutes les heures (filtré 8h-22h heure de Paris)
+  workflow_dispatch:
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node scripts/remind.mjs
+        env:
+          SUPABASE_URL: https://wcdjcpcmavbslwmicosx.supabase.co
+          SUPABASE_KEY: sb_publishable_BAHiz2mhBcvt9Sja0u7MqQ_ZcMZz0l2
+          GDN_EMAIL: thacot008@gmail.com
+          GDN_PASSWORD: ${{ secrets.GDN_PASSWORD }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          APP_URL: https://tomh0999.github.io/learning-routine/
