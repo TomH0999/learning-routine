@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Routine d'apprentissage</title>
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0f172a">
+<link rel="stylesheet" href="style.css">
+</head><body>
+<header><h1>📚 Routine</h1><span id="syncState" class="hint"></span><span id="ver">v1.1.0</span></header>
+<nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
+<main>
+<section id="today">
+  <div id="dayStatus" class="card"></div>
+  <div class="card"><div id="timer">60:00</div><div class="bar"><i id="prog"></i></div>
+  <p class="hint">Le chrono ne s'écoule que lorsque le mode « Note du cours du jour » est ouvert et l'app au premier plan.</p>
+  <button id="startNote" class="big">✍️ Note du cours du jour</button></div>
+  <div id="upcoming" class="card"></div>
+</section>
+<section id="note" hidden>
+  <div class="row"><span id="noteTimer" class="pill">60:00</span><button id="closeNote">Fermer</button></div>
+  <input id="nTitle" placeholder="Titre de la leçon"><input id="nSubject" placeholder="Matière / cours">
+  <textarea id="nContent" placeholder="Tes notes..."></textarea><p class="hint" id="saved"></p>
+</section>
+<section id="notes" hidden>
+  <input id="q" placeholder="Rechercher par titre, matière ou contenu">
+  <div class="row"><input id="qDate" type="date"><select id="sort">
+  <option value="date-desc">Date ↓</option><option value="date-asc">Date ↑</option>
+  <option value="title">Titre A→Z</option><option value="subject">Matière</option><option value="len">Longueur</option></select></div>
+  <div id="list"></div>
+</section>
+<section id="settings" hidden>
+  <div class="card"><h3>Gestionnaire de devoirs</h3>
+  <p class="hint">Connexion au compte du gestionnaire de notes : lecture seule des devoirs (jours sautés) et synchronisation de tes leçons et de ton chrono entre iPhone et PC.</p>
+  <input id="email" value="thacot008@gmail.com" readonly><input id="pwd" type="password" placeholder="Mot de passe">
+  <button id="login">Se connecter</button> <button id="sync">Actualiser</button><p id="authState" class="hint"></p></div>
+  <div class="card"><h3>Notifications (ntfy)</h3>
+  <p class="hint">Sujet ntfy privé (le même que le secret NTFY_TOPIC du dépôt). Voir README.</p>
+  <input id="topic" placeholder="ex: routine-xxxxxxxx"><button id="saveTopic">Enregistrer</button> <button id="testNtfy">Tester</button></div>
+  <div class="card"><h3>Données</h3><button id="export">Exporter (JSON)</button> <label class="btn">Importer<input id="import" type="file" accept=".json" hidden></label>
+  <p class="hint" id="persist"></p></div>
+</section>
+</main>
+<div id="modal" hidden><div class="card"><div class="row"><b id="mTitle"></b><button id="mClose">✕</button></div><p class="hint" id="mMeta"></p><div id="mBody"></div>
+<button id="mEdit">Modifier</button> <button id="mDel" class="danger">Supprimer</button></div></div>
+<script src="config.js"></script><script type="module" src="app.js"></script>
+</body></html>

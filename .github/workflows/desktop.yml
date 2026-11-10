@@ -1,0 +1,24 @@
+name: Installeur PC
+on:
+  push: { tags: ["v*"] }
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Copier l'app web
+        shell: bash
+        run: mkdir -p desktop/app && cp index.html app.js skip.js config.js style.css manifest.json icon.png desktop/app/
+      - run: npm install
+        working-directory: desktop
+      - run: npm run dist
+        working-directory: desktop
+      - uses: actions/upload-artifact@v4
+        with: { name: installeur-windows, path: desktop/dist/*.exe }
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with: { files: desktop/dist/*.exe }
