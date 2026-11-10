@@ -30,7 +30,7 @@ setInterval(() => {
   if (active && last) addProgress(Math.min(5, (now - last) / 1000));
   last = active ? now : null;
   const rest = GOAL - progress();
-  $("#noteTimer").textContent = rest > 0 ? fmt(rest) : "✅ 1h faite";
+  $("#noteTimer").textContent = rest > 0 ? fmt(rest) : "1H OK";
   if (rest <= 0) markDone();
 }, 1000);
 document.addEventListener("visibilitychange", () => { last = null; });
@@ -44,13 +44,13 @@ async function markDone() {
 // ---------- Aujourd'hui ----------
 function renderToday() {
   const hw = load(K.hw, { items: [] }).items, d = today(), why = skipReason(d, hw), p = progress();
-  $("#timer").textContent = p >= GOAL ? "✅ Objectif atteint" : fmt(GOAL - p);
+  $("#timer").textContent = p >= GOAL ? "DONE" : fmt(GOAL - p);
   $("#prog").style.width = Math.min(100, (p / GOAL) * 100) + "%";
   $("#dayStatus").innerHTML = why
-    ? `🛌 <b>Jour sauté</b> : veille de « ${esc(why.title)} » (${esc(why.type)}). Révise plutôt ça !`
-    : p >= GOAL ? "🎉 Apprentissage du jour terminé." : "🎯 Objectif : 1h d'apprentissage aujourd'hui.";
+    ? `<b>// Jour sauté</b> — veille de « ${esc(why.title)} » (${esc(why.type)}). Révise plutôt ça !`
+    : p >= GOAL ? "[OK] Apprentissage du jour terminé." : "> Objectif : 1h d'apprentissage aujourd'hui.";
   const up = hw.filter((h) => isImportant(h) && h.dueDate >= d).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 6);
-  $("#upcoming").innerHTML = "<h3>Prochaines échéances importantes</h3>" + (up.length ? up.map((h) => `<div>📌 ${esc(h.dueDate)} — ${esc(h.title)} <span class="hint">(${esc(h.type)})</span></div>`).join("") : '<p class="hint">Aucune (ou non synchronisé : voir Réglages).</p>');
+  $("#upcoming").innerHTML = "<h3>Prochaines échéances importantes</h3>" + (up.length ? up.map((h) => `<div><span style="color:var(--ac)">▸</span> ${esc(h.dueDate)} — ${esc(h.title)} <span class="hint">(${esc(h.type)})</span></div>`).join("") : '<p class="hint">Aucune (ou non synchronisé : voir Réglages).</p>');
 }
 $("#startNote").onclick = () => {
   const notes = load(K.notes, []);
@@ -165,7 +165,18 @@ $("#import").onchange = async (e) => {
 
 window.lrStatus = () => { const left = GOAL - progress(); return { done: left <= 0, skipped: !!skipReason(today(), load(K.hw, { items: [] }).items), left: Math.ceil(Math.max(0, left) / 60) }; };
 navigator.storage?.persist?.().then((ok) => ($("#persist").textContent = ok ? "Stockage persistant activé." : "Pense à exporter régulièrement tes notes."));
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js");
+// ---------- Mises à jour automatiques ----------
+function updateBar(msg, label, fn) { $("#updMsg").textContent = msg; $("#updBtn").textContent = label; $("#updBtn").onclick = fn; $("#updBar").hidden = false; }
+if (window.desktop) {
+  window.desktop.onUpdate((s) => {
+    if (s.state === "available") updateBar(`Mise à jour ${s.version} : téléchargement…`, "OK", () => ($("#updBar").hidden = true));
+    if (s.state === "ready") updateBar(`Version ${s.version} prête`, "Redémarrer", () => { saveNote(); window.desktop.install(); });
+  });
+} else if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").then((reg) => setInterval(() => reg.update(), 30 * 60 * 1000));
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (!hadController) return; if ($("#note").hidden) location.reload(); else updateBar("Nouvelle version disponible", "Recharger", () => { saveNote(); location.reload(); }); });
+}
 syncHomework().catch(() => {}).finally(renderToday);
 syncAll();
 setInterval(() => document.visibilityState === "visible" && syncAll(), 30000);

@@ -3,17 +3,17 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Routine d'apprentissage</title>
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0a0a0a"><link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="style.css">
 </head><body>
-<header><h1>📚 Routine</h1><span id="syncState" class="hint"></span><span id="ver">v1.1.0</span></header>
+<header><div class="logo"><img src="icon.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.2.0</span></header>
 <nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
 <main>
 <section id="today">
   <div id="dayStatus" class="card"></div>
-  <div class="card"><div id="timer">60:00</div><div class="bar"><i id="prog"></i></div>
+  <div class="card"><h3>Chrono du jour</h3><div id="timer">60:00</div><div class="bar"><i id="prog"></i></div>
   <p class="hint">Le chrono ne s'écoule que lorsque le mode « Note du cours du jour » est ouvert et l'app au premier plan.</p>
-  <button id="startNote" class="big">✍️ Note du cours du jour</button></div>
+  <button id="startNote" class="big">Note du cours du jour</button></div>
   <div id="upcoming" class="card"></div>
 </section>
 <section id="note" hidden>
@@ -40,6 +40,8 @@
   <p class="hint" id="persist"></p></div>
 </section>
 </main>
+<div class="tape"></div>
+<div id="updBar" hidden><span id="updMsg"></span><button id="updBtn">Installer</button></div>
 <div id="modal" hidden><div class="card"><div class="row"><b id="mTitle"></b><button id="mClose">✕</button></div><p class="hint" id="mMeta"></p><div id="mBody"></div>
 <button id="mEdit">Modifier</button> <button id="mDel" class="danger">Supprimer</button></div></div>
 <script src="config.js"></script><script type="module" src="app.js"></script>

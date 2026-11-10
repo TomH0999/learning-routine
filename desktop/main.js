@@ -1,13 +1,14 @@
 // Version PC : charge l'app web embarquée (dossier app/), reste dans la zone de notification
 // et envoie un rappel Windows chaque heure (8h-22h) tant que l'heure du jour n'est pas faite.
-const { app, BrowserWindow, Tray, Menu, Notification, nativeImage } = require("electron");
+const { app, BrowserWindow, Tray, Menu, Notification, nativeImage, ipcMain } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const path = require("path");
 let win, tray, quitting = false;
 if (!app.requestSingleInstanceLock()) app.quit();
 app.setAppUserModelId("io.github.tomh0999.learningroutine");
 
 function createWindow() {
-  win = new BrowserWindow({ width: 1000, height: 800, icon: path.join(__dirname, "app/icon.png"), autoHideMenuBar: true });
+  win = new BrowserWindow({ width: 1000, height: 800, icon: path.join(__dirname, "app/icon.png"), autoHideMenuBar: true, backgroundColor: "#0a0a0a", webPreferences: { preload: path.join(__dirname, "preload.js") } });
   win.loadFile(path.join(__dirname, "app/index.html"));
   win.on("close", (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
 }
@@ -32,5 +33,17 @@ app.whenReady().then(() => {
   tray.on("click", showWin);
   app.setLoginItemSettings({ openAtLogin: true, args: ["--hidden"] });
   if (process.argv.includes("--hidden")) win.hide();
+  // Mise à jour automatique depuis les Releases GitHub
+  const send = (s) => win && win.webContents.send("update", s);
+  autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("update-available", (i) => send({ state: "available", version: i.version }));
+  autoUpdater.on("update-downloaded", (i) => {
+    send({ state: "ready", version: i.version });
+    new Notification({ title: "Routine : mise à jour prête", body: `Version ${i.version} installée au prochain redémarrage.` }).show();
+  });
+  autoUpdater.on("error", () => {});
+  ipcMain.on("install-update", () => { quitting = true; autoUpdater.quitAndInstall(); });
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 10000); setInterval(check, 4 * 60 * 60 * 1000);
   setTimeout(remind, 60000); setInterval(remind, 60 * 60 * 1000);
 });

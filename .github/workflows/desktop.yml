@@ -12,20 +12,11 @@ jobs:
         with: { node-version: 20 }
       - name: Copier l'app web
         shell: bash
-        run: mkdir -p desktop/app && cp index.html app.js skip.js config.js style.css manifest.json icon.png desktop/app/
+        run: mkdir -p desktop/app && cp index.html app.js skip.js config.js style.css manifest.json icon.png icon.svg desktop/app/
       - run: npm install
         working-directory: desktop
       - run: npm run dist
         working-directory: desktop
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
       - uses: actions/upload-artifact@v4
         with: { name: installeur-windows, path: desktop/dist/*.exe }
-      - id: v
-        shell: bash
-        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.v.outputs.version }}
-          name: Routine d'apprentissage v${{ steps.v.outputs.version }}
-          target_commitish: ${{ github.sha }}
-          body: "Installeur Windows ci-dessous. iPhone : https://tomh0999.github.io/learning-routine/ (Partager → Sur l'écran d'accueil). Voir README."
-          files: desktop/dist/*.exe
