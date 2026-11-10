@@ -1,15 +1,18 @@
 import { skipReason, parisToday, isImportant, addDays } from "./skip.js";
 const C = window.LR_CONFIG, GOAL = C.goalMinutes * 60;
 const $ = (s) => document.querySelector(s);
-const K = { notes: "lr_notes", prog: "lr_progress", auth: "lr_auth", hw: "lr_homework", topic: "lr_topic", done: "lr_done_sent", remote: "lr_progress_remote", dev: "lr_device", cur: "lr_sync_cursor" };
+const K = { notes: "lr_notes", prog: "lr_progress", auth: "lr_auth", hw: "lr_homework", topic: "lr_topic", done: "lr_done_sent", remote: "lr_progress_remote", dev: "lr_device", cur: "lr_sync_cursor", topics: "lr_topics" };
 const DEV = localStorage.getItem(K.dev) || (localStorage.setItem(K.dev, crypto.randomUUID().slice(0, 8)), localStorage.getItem(K.dev));
 const liveNotes = () => load(K.notes, []).filter((n) => !n.deleted);
+const liveTopics = () => load(K.topics, []).filter((t) => !t.deleted);
+const norm = (x) => String(x || "").trim().toLowerCase();
+const notesOf = (t) => liveNotes().filter((n) => norm(n.subject) === norm(t.name));
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (s) => { s = Math.max(0, Math.ceil(s)); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
 const today = () => parisToday();
-let current = null; // id de la note en cours d'édition
+let current = null, noteSecs = 0; // id de la note en cours d'édition
 
 // ---------- Navigation ----------
 function show(v) {
@@ -17,7 +20,7 @@ function show(v) {
   for (const s of document.querySelectorAll("main>section")) s.hidden = s.id !== v;
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   $("nav").hidden = v === "note";
-  if (v === "today") renderToday(); if (v === "notes") renderList(); if (v === "settings") renderSettings();
+  if (v === "today") renderToday(); if (v === "notes") renderList(); if (v === "topics") renderTopics(); if (v === "settings") renderSettings();
 }
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => show(b.dataset.v)));
 
@@ -28,7 +31,7 @@ let last = null;
 setInterval(() => {
   const active = !$("#note").hidden && document.visibilityState === "visible";
   const now = Date.now();
-  if (active && last) addProgress(Math.min(5, (now - last) / 1000));
+  if (active && last) { const dt = Math.min(5, (now - last) / 1000); addProgress(dt); noteSecs += dt; if (noteSecs >= 15) saveNote(); }
   last = active ? now : null;
   const rest = GOAL - progress();
   $("#noteTimer").textContent = rest > 0 ? fmt(rest) : "1H OK";
@@ -56,19 +59,21 @@ function renderToday() {
   $("#upcoming").innerHTML = "<h3>Prochaines échéances importantes</h3>" + (up.length ? up.map((h) => `<div><span style="color:var(--ac)">▸</span> ${esc(h.dueDate)} — ${esc(h.title)} <span class="hint">(${esc(h.type)})</span></div>`).join("") : '<p class="hint">Aucune (ou non synchronisé : voir Réglages).</p>');
 }
 $("#heroGo").onclick = () => $("#startNote").click();
-$("#startNote").onclick = () => {
+$("#startNote").onclick = () => startSession();
+function startSession(topic = null) {
   const notes = load(K.notes, []);
-  let n = notes.find((x) => x.date === today() && !x.deleted);
-  if (!n) { n = { id: crypto.randomUUID(), date: today(), title: "", subject: "", content: "", createdAt: Date.now(), updatedAt: Date.now() }; notes.push(n); save(K.notes, notes); }
+  let n = notes.filter((x) => x.date === today() && !x.deleted).find((x) => (topic ? norm(x.subject) === norm(topic) : true));
+  if (!n) { n = { id: crypto.randomUUID(), date: today(), title: "", subject: topic || "", content: "", secs: 0, createdAt: Date.now(), updatedAt: Date.now() }; notes.push(n); save(K.notes, notes); queueSync(); }
   openEditor(n.id);
-};
+}
 function openEditor(id) {
   const n = load(K.notes, []).find((x) => x.id === id); if (!n) return;
-  current = id; $("#nTitle").value = n.title; $("#nSubject").value = n.subject; $("#nContent").value = n.content; $("#saved").textContent = `Leçon du ${n.date}`;
+  current = id; $("#nTitle").value = n.title; $("#nSubject").value = n.subject; $("#topicList").innerHTML = liveTopics().map((t) => `<option value="${esc(t.name)}">`).join(""); $("#nContent").value = n.content; $("#saved").textContent = `Leçon du ${n.date}`;
   $("#modal").hidden = true; show("note");
 }
 function saveNote() {
   const notes = load(K.notes, []), n = notes.find((x) => x.id === current); if (!n) return;
+  n.secs = (n.secs || 0) + noteSecs; noteSecs = 0;
   Object.assign(n, { title: $("#nTitle").value, subject: $("#nSubject").value, content: $("#nContent").value, updatedAt: Date.now() });
   save(K.notes, notes); queueSync(); $("#saved").textContent = `Enregistré à ${new Date().toLocaleTimeString("fr-FR")}`;
 }
@@ -99,7 +104,8 @@ function computeStats(hw) {
   const active = dates.filter((d) => sec(d) > 0).length;
   const week = [...Array(7)].reduce((t, _, i) => t + sec(addDays(d0, -i)), 0);
   const mins = total / 60, level = Math.floor(Math.sqrt(mins / 30)) + 1, lvlLo = (level - 1) ** 2 * 30, lvlHi = level ** 2 * 30;
-  return { dates, sec, done, lessons: notes.length, ok, pct: eligible ? Math.round((ok / eligible) * 100) : 0, total, lines, words, chars: text.length, streak, best, top, subjects: Object.keys(subj).length, avg: active ? total / active : 0, week, mins, level, lvlPct: ((mins - lvlLo) / (lvlHi - lvlLo)) * 100, toNext: Math.ceil(lvlHi - mins) };
+  const tops = liveTopics();
+  return { tDone: tops.filter((t) => t.doneAt).length, tStudied: tops.filter((t) => notesOf(t).length).length, dates, sec, done, lessons: notes.length, ok, pct: eligible ? Math.round((ok / eligible) * 100) : 0, total, lines, words, chars: text.length, streak, best, top, subjects: Object.keys(subj).length, avg: active ? total / active : 0, week, mins, level, lvlPct: ((mins - lvlLo) / (lvlHi - lvlLo)) * 100, toNext: Math.ceil(lvlHi - mins) };
 }
 const hm = (s) => { const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `${m}min`; };
 function renderStats(hw) {
@@ -108,7 +114,7 @@ function renderStats(hw) {
     ["Leçons complétées", S.lessons, "", "▣"], ["Jours réussis", S.pct, "%", "◎"], ["Temps total", hm(S.total), null, "◷"],
     ["Série actuelle", S.streak, " j", "▲"], ["Meilleure série", S.best, " j", "★"], ["Lignes écrites", S.lines, "", "≡"],
     ["Mots écrits", S.words, "", "✎"], ["Moyenne / jour actif", hm(S.avg), null, "∿"], ["Cette semaine", hm(S.week), null, "▦"],
-    ["Matières explorées", S.subjects, "", "◇"], ["Matière favorite", S.top ? S.top[0] : "—", null, "♥"], ["Caractères tapés", S.chars, "", "⌨"]
+    ["Sujets maîtrisés", S.tDone, "", "◇"], ["Matière favorite", S.top ? S.top[0] : "—", null, "♥"], ["Sujets étudiés", S.tStudied, "", "⌘"], ["Caractères tapés", S.chars, "", "⌨"]
   ];
   $("#stats").innerHTML = `<div class="tile lvl reveal"><div class="lvl-n">LVL <b data-count="${S.level}">0</b></div><div class="lvl-bar"><i style="width:${S.lvlPct.toFixed(1)}%"></i></div><p class="hint">${S.toNext} min avant le niveau ${S.level + 1}</p></div>` +
     tiles.map(([l, v, u, ic], i) => `<div class="tile reveal" style="--d:${i * 40}ms"><span class="ic">${ic}</span><div class="v">${u === null ? esc(v) : `<b data-count="${v}">0</b>${u}`}</div><div class="l">${l}</div></div>`).join("");
@@ -117,7 +123,7 @@ function renderStats(hw) {
   const start = addDays(d0, -111); let cells = "";
   for (let i = 0; i < 112; i++) { const d = addDays(start, i), r = S.sec(d) / GOAL, lv = r >= 1 ? 4 : r >= .66 ? 3 : r >= .33 ? 2 : r > 0 ? 1 : 0; cells += `<i class="h${lv}${skipReason(d, hw) ? " sk" : ""}" title="${d}"></i>`; }
   $("#heat").innerHTML = cells; $("#heatLegend").innerHTML = 'Moins <i class="h0"></i><i class="h1"></i><i class="h2"></i><i class="h3"></i><i class="h4"></i> Plus · <i class="h0 sk"></i> jour sauté';
-  const B = [["Première leçon", S.lessons >= 1], ["Série de 3", S.best >= 3], ["Série de 7", S.best >= 7], ["Série de 30", S.best >= 30], ["10 h cumulées", S.mins >= 600], ["50 h cumulées", S.mins >= 3000], ["1 000 lignes", S.lines >= 1000], ["10 000 mots", S.words >= 10000], ["5 matières", S.subjects >= 5], ["100 % sur 7 j", [...Array(7)].every((_, i) => S.done(addDays(d0, -i - 1)) || skipReason(addDays(d0, -i - 1), hw))]];
+  const B = [["Première leçon", S.lessons >= 1], ["Série de 3", S.best >= 3], ["Série de 7", S.best >= 7], ["Série de 30", S.best >= 30], ["10 h cumulées", S.mins >= 600], ["50 h cumulées", S.mins >= 3000], ["1 000 lignes", S.lines >= 1000], ["10 000 mots", S.words >= 10000], ["5 matières", S.subjects >= 5], ["1er sujet maîtrisé", S.tDone >= 1], ["10 sujets maîtrisés", S.tDone >= 10], ["100 % sur 7 j", [...Array(7)].every((_, i) => S.done(addDays(d0, -i - 1)) || skipReason(addDays(d0, -i - 1), hw))]];
   $("#badges").innerHTML = `<h3>Succès — ${B.filter((b) => b[1]).length}/${B.length}</h3><div class="badges">${B.map(([n, ok]) => `<span class="badge${ok ? " on" : ""}">${ok ? "◆" : "◇"} ${n}</span>`).join("")}</div>`;
   observeReveal();
 }
@@ -145,16 +151,49 @@ function observeReveal() { document.querySelectorAll(".reveal:not(.in)").forEach
   addEventListener("scroll", () => { const y = scrollY; document.querySelector(".orb").style.transform = `translateY(${y * .25}px) rotate(${y * .03}deg)`; document.querySelector(".hero-txt").style.transform = `translateY(${y * .12}px)`; document.querySelector(".hero-txt").style.opacity = Math.max(0, 1 - y / 500); }, { passive: true });
 })();
 
+// ---------- Sujets à étudier ----------
+function saveTopics(list) { save(K.topics, list); queueSync(); renderTopics(); }
+function topicStats(t) { const ns = notesOf(t); return { sessions: ns.length, days: new Set(ns.map((n) => n.date)).size, secs: ns.reduce((a, n) => a + (n.secs || 0), 0), lines: ns.reduce((a, n) => a + (n.content || "").split("\n").filter((l) => l.trim()).length, 0), last: ns.map((n) => n.date).sort().pop() }; }
+function renderTopics() {
+  const f = $("#tFilter").value, all = liveTopics();
+  const list = all.filter((t) => f === "all" || (f === "done" ? t.doneAt : !t.doneAt))
+    .sort((a, b) => (!!a.doneAt - !!b.doneAt) || (b.doneAt || b.createdAt) - (a.doneAt || a.createdAt));
+  const done = all.filter((t) => t.doneAt), studied = all.filter((t) => topicStats(t).sessions > 0);
+  const avg = done.length ? done.reduce((a, t) => a + topicStats(t).secs, 0) / done.length : 0;
+  $("#tSummary").innerHTML = [["Sujets", all.length], ["Étudiés", studied.length], ["Maîtrisés", done.length], ["Temps moyen / sujet maîtrisé", done.length ? hm(avg) : "—"]].map(([l, v]) => `<div class="tile in"><div class="v">${esc(v)}</div><div class="l">${l}</div></div>`).join("");
+  $("#tList").innerHTML = list.length ? list.map((t) => { const S = topicStats(t); return `<div class="card topic${t.doneAt ? " done" : ""}" data-id="${t.id}">
+    <label class="chk"><input type="checkbox" class="tDone"${t.doneAt ? " checked" : ""}><span></span></label>
+    <div class="tbody"><b>${esc(t.name)}</b>
+      <div class="hint">${S.sessions} session${S.sessions > 1 ? "s" : ""} · ${hm(S.secs)} · ${S.lines} lignes${S.last ? " · dernière : " + S.last : ""}${t.doneAt ? " · maîtrisé le " + new Date(t.doneAt).toLocaleDateString("fr-FR") : ""}</div>
+      <div class="tact"><button class="tGo">Étudier</button> <button class="tNotes"${S.sessions ? "" : " disabled"}>Réviser les notes (${S.sessions})</button> <button class="tDel danger">✕</button></div></div></div>`; }).join("") : '<p class="hint">Aucun sujet. Ajoute ce que tu veux apprendre ci-dessus.</p>';
+  document.querySelectorAll(".topic").forEach((el) => {
+    const id = el.dataset.id, t = all.find((x) => x.id === id);
+    el.querySelector(".tDone").onchange = (e) => saveTopics(load(K.topics, []).map((x) => (x.id === id ? { ...x, doneAt: e.target.checked ? Date.now() : null, updatedAt: Date.now() } : x)));
+    el.querySelector(".tGo").onclick = () => startSession(t.name);
+    el.querySelector(".tNotes").onclick = () => { show("notes"); $("#q").value = ""; $("#qDate").value = ""; $("#sort").value = "date-asc"; $("#qSubject").innerHTML = `<option>${esc(t.name)}</option>`; $("#qSubject").value = t.name; renderList(); };
+    el.querySelector(".tDel").onclick = () => confirm(`Supprimer le sujet « ${t.name} » ? (les notes sont conservées)`) && saveTopics(load(K.topics, []).map((x) => (x.id === id ? { id, deleted: true, updatedAt: Date.now() } : x)));
+  });
+}
+$("#tAdd").onsubmit = (e) => {
+  e.preventDefault(); const name = $("#tName").value.trim(); if (!name) return;
+  if (liveTopics().some((t) => norm(t.name) === norm(name))) return alert("Ce sujet existe déjà.");
+  saveTopics([...load(K.topics, []), { id: crypto.randomUUID(), name, createdAt: Date.now(), doneAt: null, updatedAt: Date.now() }]); $("#tName").value = "";
+};
+$("#tFilter").onchange = renderTopics;
+
 // ---------- Leçons ----------
 function renderList() {
   const q = $("#q").value.toLowerCase().trim(), d = $("#qDate").value, s = $("#sort").value;
-  let notes = liveNotes().filter((n) => (!d || n.date === d) && (!q || `${n.title} ${n.subject} ${n.content}`.toLowerCase().includes(q)));
+  const sj = $("#qSubject").value;
+  const subs = [...new Set(liveNotes().map((n) => (n.subject || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+  $("#qSubject").innerHTML = '<option value="">Tous les sujets</option>' + subs.map((x) => `<option${norm(x) === norm(sj) ? " selected" : ""}>${esc(x)}</option>`).join("");
+  let notes = liveNotes().filter((n) => (!sj || norm(n.subject) === norm(sj)) && (!d || n.date === d) && (!q || `${n.title} ${n.subject} ${n.content}`.toLowerCase().includes(q)));
   const cmp = { "date-desc": (a, b) => b.date.localeCompare(a.date) || b.updatedAt - a.updatedAt, "date-asc": (a, b) => a.date.localeCompare(b.date), title: (a, b) => (a.title || "").localeCompare(b.title || "", "fr"), subject: (a, b) => (a.subject || "").localeCompare(b.subject || "", "fr") || b.date.localeCompare(a.date), len: (a, b) => b.content.length - a.content.length };
   notes.sort(cmp[s]);
-  $("#list").innerHTML = notes.length ? notes.map((n) => `<div class="card item" data-id="${n.id}"><b>${esc(n.title || "(sans titre)")}</b><div class="hint">${esc(n.date)} · ${esc(n.subject || "—")}</div><div class="excerpt">${esc(n.content.slice(0, 120))}</div></div>`).join("") : '<p class="hint">Aucune leçon.</p>';
+  $("#list").innerHTML = notes.length ? notes.map((n) => `<div class="card item" data-id="${n.id}"><b>${esc(n.title || "(sans titre)")}</b><div class="hint">${esc(n.date)} · ${esc(n.subject || "—")}${n.secs ? " · " + hm(n.secs) : ""}</div><div class="excerpt">${esc(n.content.slice(0, 120))}</div></div>`).join("") : '<p class="hint">Aucune leçon.</p>';
   document.querySelectorAll(".item").forEach((el) => (el.onclick = () => openModal(el.dataset.id)));
 }
-["#q", "#qDate", "#sort"].forEach((s) => $(s).addEventListener("input", renderList));
+["#q", "#qDate", "#sort", "#qSubject"].forEach((s) => $(s).addEventListener("input", renderList));
 function openModal(id) {
   const n = load(K.notes, []).find((x) => x.id === id);
   $("#mTitle").textContent = n.title || "(sans titre)"; $("#mMeta").textContent = `${n.date} · ${n.subject || "—"}`; $("#mBody").textContent = n.content;
@@ -203,38 +242,47 @@ async function syncAll(full = false) {
     const rows = await (await fetch(`${C.supabaseUrl}/rest/v1/lr_items?select=id,kind,data,deleted,updated_at`, { headers: H(t) })).json();
     if (!Array.isArray(rows)) throw new Error(rows.message || "synchro");
     const notes = load(K.notes, []), byId = new Map(notes.map((n) => [n.id, n])), remote = {}, push = [];
+    const topics = load(K.topics, []), tById = new Map(topics.map((t) => [t.id, t])), tPush = [];
     for (const r of rows) {
       if (r.kind === "note") {
         const l = byId.get(r.id);
         if (!l || l.updatedAt < r.updated_at) { const n = r.deleted ? { id: r.id, date: r.data.date, deleted: true, updatedAt: r.updated_at } : { ...r.data, id: r.id, updatedAt: r.updated_at }; byId.set(r.id, n); }
         else if (l.updatedAt > r.updated_at) push.push(l);
+      } else if (r.kind === "topic") {
+        const l = tById.get(r.id);
+        if (!l || l.updatedAt < r.updated_at) tById.set(r.id, r.deleted ? { id: r.id, deleted: true, updatedAt: r.updated_at } : { ...r.data, id: r.id, updatedAt: r.updated_at });
+        else if (l.updatedAt > r.updated_at) tPush.push(l);
       } else if (r.kind === "progress") { (remote[r.data.date] ??= {})[r.data.dev] = r.data.sec; }
     }
     const known = new Set(rows.map((r) => r.id));
     for (const n of notes) if (!known.has(n.id)) push.push(n);
+    for (const t of topics) if (!known.has(t.id)) tPush.push(t);
+    save(K.topics, [...tById.values()]);
     save(K.notes, [...byId.values()]); save(K.remote, remote);
-    const body = push.map((n) => ({ id: n.id, kind: "note", deleted: !!n.deleted, updated_at: n.updatedAt, data: n.deleted ? { date: n.date } : { date: n.date, title: n.title, subject: n.subject, content: n.content, createdAt: n.createdAt } }));
+    const body = push.map((n) => ({ id: n.id, kind: "note", deleted: !!n.deleted, updated_at: n.updatedAt, data: n.deleted ? { date: n.date } : { date: n.date, title: n.title, subject: n.subject, content: n.content, secs: Math.round(n.secs || 0), createdAt: n.createdAt } }));
+    for (const t of tPush) body.push({ id: t.id, kind: "topic", deleted: !!t.deleted, updated_at: t.updatedAt, data: t.deleted ? {} : { name: t.name, createdAt: t.createdAt, doneAt: t.doneAt || null } });
     for (const [date, sec] of Object.entries(load(K.prog, {}))) if (!remote[date] || Math.abs((remote[date][DEV] || 0) - sec) > 1) body.push({ id: `p-${date}-${DEV}`, kind: "progress", deleted: false, updated_at: Date.now(), data: { date, dev: DEV, sec: Math.round(sec) } });
     if (body.length) {
       const r = await fetch(`${C.supabaseUrl}/rest/v1/lr_items?on_conflict=user_id,id`, { method: "POST", headers: { ...H(t), Prefer: "resolution=merge-duplicates" }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error("envoi refusé");
     }
     save(K.cur, start); setSync(`Synchronisé ${new Date().toLocaleTimeString("fr-FR")}`);
-    if (!$("#notes").hidden) renderList(); if (!$("#today").hidden) renderToday();
+    if (!$("#notes").hidden) renderList(); if (!$("#topics").hidden) renderTopics(); if (!$("#today").hidden) renderToday();
   } catch (e) { setSync("Erreur de synchro : " + e.message); } finally { syncing = false; }
 }
 function setSync(m) { const el = $("#syncState"); if (el) el.textContent = m; }
 
 // ---------- Export / import (conservation des données) ----------
 $("#export").onclick = () => {
-  const blob = new Blob([JSON.stringify({ app: "learning-routine", v: 1, notes: liveNotes(), progress: load(K.prog, {}) }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ app: "learning-routine", v: 1, notes: liveNotes(), topics: liveTopics(), progress: load(K.prog, {}) }, null, 2)], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `routine-${today()}.json`; a.click();
 };
 $("#import").onchange = async (e) => {
   const d = JSON.parse(await e.target.files[0].text()), notes = load(K.notes, []), ids = new Set(notes.map((n) => n.id));
   for (const n of d.notes || []) if (!ids.has(n.id)) notes.push(n);
   const p = load(K.prog, {}); for (const [k, v] of Object.entries(d.progress || {})) p[k] = Math.max(p[k] || 0, v);
-  save(K.notes, notes); save(K.prog, p); syncAll(true); alert("Import terminé (fusion, rien n'est écrasé)."); show("today");
+  const tp = load(K.topics, []), tids = new Set(tp.map((t) => t.id)); for (const t of d.topics || []) if (!tids.has(t.id)) tp.push(t);
+  save(K.topics, tp); save(K.notes, notes); save(K.prog, p); syncAll(true); alert("Import terminé (fusion, rien n'est écrasé)."); show("today");
 };
 
 window.lrStatus = () => { const left = GOAL - progress(); return { done: left <= 0, skipped: !!skipReason(today(), load(K.hw, { items: [] }).items), left: Math.ceil(Math.max(0, left) / 60) }; };
