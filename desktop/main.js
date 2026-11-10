@@ -8,7 +8,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 app.setAppUserModelId("io.github.tomh0999.learningroutine");
 
 function createWindow() {
-  win = new BrowserWindow({ width: 1000, height: 800, icon: path.join(__dirname, "app/icon.png"), autoHideMenuBar: true, backgroundColor: "#050507", webPreferences: { preload: path.join(__dirname, "preload.js") } });
+  win = new BrowserWindow({ width: 1000, height: 800, icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true, backgroundColor: "#050507", webPreferences: { preload: path.join(__dirname, "preload.js") } });
   win.loadFile(path.join(__dirname, "app/index.html"));
   win.on("close", (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
 }
@@ -27,7 +27,7 @@ async function remind() {
 app.on("second-instance", showWin);
 app.whenReady().then(() => {
   createWindow();
-  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, "app/icon.png")).resize({ width: 16 }));
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, "icon.png")).resize({ width: 32 }));
   tray.setToolTip("Routine d'apprentissage");
   tray.setContextMenu(Menu.buildFromTemplate([{ label: "Ouvrir", click: showWin }, { label: "Quitter", click: () => { quitting = true; app.quit(); } }]));
   tray.on("click", showWin);

@@ -1,1 +1,1 @@
-{"name":"Routine d'apprentissage","short_name":"Routine","start_url":"./","display":"standalone","background_color":"#050507","theme_color":"#050507","icons":[{"src":"icon.png","sizes":"512x512","type":"image/png"}]}
+{"name": "Routine d'apprentissage", "short_name": "Routine", "start_url": "./", "display": "standalone", "background_color": "#050507", "theme_color": "#050507", "icons": [{"src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}, {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]}
