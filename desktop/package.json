@@ -1,7 +1,7 @@
 {
   "name": "learning-routine",
   "productName": "Routine d'apprentissage",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Routine d'apprentissage (version PC)",
   "main": "main.js",
   "author": "TomH0999",
@@ -18,16 +18,22 @@
     "files": [
       "main.js",
       "preload.js",
+      "icon.png",
+      "icon.ico",
       "app/**"
     ],
     "win": {
       "target": "nsis",
-      "icon": "icon256.png"
+      "icon": "icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "shortcutName": "Routine"
     },
     "artifactName": "Routine-Setup-${version}.${ext}",
     "publish": [
