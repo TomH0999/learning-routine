@@ -1,6 +1,6 @@
 name: Installeur PC
 on:
-  push: { tags: ["v*"] }
+  push: { branches: [main] }
   workflow_dispatch:
 permissions: { contents: write }
 jobs:
@@ -19,6 +19,13 @@ jobs:
         working-directory: desktop
       - uses: actions/upload-artifact@v4
         with: { name: installeur-windows, path: desktop/dist/*.exe }
+      - id: v
+        shell: bash
+        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with: { files: desktop/dist/*.exe }
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          name: Routine d'apprentissage v${{ steps.v.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          body: "Installeur Windows ci-dessous. iPhone : https://tomh0999.github.io/learning-routine/ (Partager → Sur l'écran d'accueil). Voir README."
+          files: desktop/dist/*.exe

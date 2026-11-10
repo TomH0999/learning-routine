@@ -18,7 +18,7 @@ Mon outil d'apprentissage quotidien (PWA pour iPhone, hébergée sur GitHub Page
 5. Dans l'app → Réglages : saisir le même sujet ntfy, puis se connecter au gestionnaire.
 
 ## Installer sur PC
-Onglet **Releases** du dépôt → télécharger `Routine-Setup-1.1.0.exe` → lancer (Windows SmartScreen : « Informations complémentaires » → « Exécuter quand même », l'app n'est pas signée). Puis Réglages → se connecter. L'installeur est construit automatiquement par GitHub Actions à chaque tag `v*` (ou manuellement : Actions → « Installeur PC » → Run workflow, fichier dans les artefacts).
+Onglet **Releases** du dépôt → télécharger `Routine-Setup-1.1.0.exe` → lancer (Windows SmartScreen : « Informations complémentaires » → « Exécuter quand même », l'app n'est pas signée). Puis Réglages → se connecter. L'installeur et la Release sont créés automatiquement par GitHub Actions à chaque mise à jour de `main` (version lue dans `desktop/package.json`) (ou manuellement : Actions → « Installeur PC » → Run workflow, fichier dans les artefacts).
 
 ## Limites (iOS)
 iOS ne permet à aucune app web d'afficher une notification impossible à effacer. Le comportement retenu : rappel **répété chaque heure** (prioritaire à partir de 20h) jusqu'à ce que l'app publie « DONE » à la fin de l'heure. Les crons GitHub peuvent être retardés de quelques minutes.
