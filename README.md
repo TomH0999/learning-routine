@@ -1,4 +1,4 @@
-# learning-routine — v1.2.0
+# learning-routine — v1.3.0
 Mon outil d'apprentissage quotidien (PWA pour iPhone, hébergée sur GitHub Pages).
 
 ## Fonctions
