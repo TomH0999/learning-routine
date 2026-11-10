@@ -1,4 +1,4 @@
-const V = "lr-1.1.0", FILES = ["./", "index.html", "app.js", "skip.js", "config.js", "style.css", "manifest.json", "icon.png"];
+const V = "lr-1.2.0", FILES = ["./", "index.html", "app.js", "skip.js", "config.js", "style.css", "manifest.json", "icon.png", "icon.svg"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener("activate", (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k))))));
 self.addEventListener("fetch", (e) => {

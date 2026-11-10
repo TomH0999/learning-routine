@@ -1,4 +1,4 @@
-# learning-routine — v1.1.0
+# learning-routine — v1.2.0
 Mon outil d'apprentissage quotidien (PWA pour iPhone, hébergée sur GitHub Pages).
 
 ## Fonctions
@@ -22,3 +22,8 @@ Onglet **Releases** du dépôt → télécharger `Routine-Setup-1.1.0.exe` → l
 
 ## Limites (iOS)
 iOS ne permet à aucune app web d'afficher une notification impossible à effacer. Le comportement retenu : rappel **répété chaque heure** (prioritaire à partir de 20h) jusqu'à ce que l'app publie « DONE » à la fin de l'heure. Les crons GitHub peuvent être retardés de quelques minutes.
+
+## Mises à jour
+- **PC** : l'app vérifie les Releases GitHub au démarrage puis toutes les 4 h, télécharge la nouvelle version en arrière-plan et propose « Redémarrer » (sinon installée à la fermeture). *La v1.1.0 n'avait pas de mise à jour automatique : installer une fois la v1.2.0 à la main.*
+- **iPhone** : l'app se met à jour toute seule (vérification toutes les 30 min, bandeau « Recharger » si tu es en train d'écrire).
+- Publier une version : changer `version` dans `desktop/package.json` puis fusionner dans `main`.
