@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0f172a">
 <link rel="stylesheet" href="style.css">
 </head><body>
-<header><h1>📚 Routine</h1><span id="ver">v1.0.0</span></header>
+<header><h1>📚 Routine</h1><span id="syncState" class="hint"></span><span id="ver">v1.1.0</span></header>
 <nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
 <main>
 <section id="today">
@@ -30,7 +30,7 @@
 </section>
 <section id="settings" hidden>
   <div class="card"><h3>Gestionnaire de devoirs</h3>
-  <p class="hint">Connexion au compte du gestionnaire de notes (lecture seule) pour sauter les veilles de contrôles et de rendus importants.</p>
+  <p class="hint">Connexion au compte du gestionnaire de notes : lecture seule des devoirs (jours sautés) et synchronisation de tes leçons et de ton chrono entre iPhone et PC.</p>
   <input id="email" value="thacot008@gmail.com" readonly><input id="pwd" type="password" placeholder="Mot de passe">
   <button id="login">Se connecter</button> <button id="sync">Actualiser</button><p id="authState" class="hint"></p></div>
   <div class="card"><h3>Notifications (ntfy)</h3>
