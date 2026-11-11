@@ -113,3 +113,30 @@ input,textarea,select,button{touch-action:manipulation}
 .chip{display:inline-block;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:rgba(255,42,61,.18);border:1px solid var(--ac);padding:1px 6px;margin-right:4px;vertical-align:1px}
 #nTag{margin-bottom:8px}
 .row input[type=date]{margin:0;flex:1;min-width:0}#sort{flex:0 0 42%}
+
+/* ===== Fenêtres PC (moitié / tiers d'écran 1440p ou 1080p) ===== */
+@media(min-width:820px){
+  body{max-width:1500px;padding:12px 26px 60px}
+  .hero{margin:0 -26px 24px;padding:0 40px 70px;min-height:min(78vh,720px)}
+  .hero-txt{max-width:56%}
+  .orb{right:0;width:min(58vw,640px);top:50%;margin-top:calc(min(58vw,640px) / -2)}
+  #today{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:18px;align-items:start}
+  #today>*{grid-column:1/-1}
+  #today>#timerCard{grid-column:1;grid-row:span 2}
+  #today>#secUp{display:none}
+  #today>#upcoming{grid-column:2;order:0}
+  #today>.hero,#today>#dayStatus{order:-2}
+  #today>#timerCard,#today>#upcoming{order:-1}
+  #today>.card:has(#chart){grid-column:1}#today>.card:has(#heat){grid-column:2}
+  #list,#tList{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  #list .card,#tList .card{margin:0}
+  #settings{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;align-items:start}#settings .card{margin:0}
+  #notes>.row,#notes>input,#topics>form,#topics>select,#topics>.row{max-width:900px}
+  #note{max-width:1100px;margin:auto}
+  #note textarea{min-height:68vh;font-size:15px}
+  .glitch{font-size:clamp(4rem,8vw,7.5rem)}
+  #modal .card{max-width:900px;margin:auto}
+}
+@media(min-width:1180px){
+  .stats{grid-template-columns:repeat(6,1fr)}
+}

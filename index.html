@@ -5,9 +5,9 @@
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#050507"><link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="hq.css">
-<script>try{if(localStorage.getItem("lr_visual")==="hq")document.documentElement.classList.add("hq")}catch(e){}</script>
+<script>try{if(localStorage.getItem("lr_visual")==="hq"&&matchMedia("(hover:hover) and (pointer:fine)").matches)document.documentElement.classList.add("hq")}catch(e){}</script>
 </head><body>
-<header><div class="logo"><img src="icon-512.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.8.0</span></header>
+<header><div class="logo"><img src="icon-512.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.9.0</span></header>
 <nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="topics">Sujets</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
 <main>
 <section id="today">
@@ -43,7 +43,7 @@
   <div class="card reveal"><h3>14 derniers jours</h3><div class="chart" id="chart"></div></div>
   <div class="card reveal"><h3>Activité — 16 semaines</h3><div class="heat" id="heat"></div><p class="hint" id="heatLegend"></p></div>
   <div class="card reveal" id="badges"></div>
-  <h2 class="sec reveal"><span>/03</span> Échéances</h2>
+  <h2 class="sec reveal" id="secUp"><span>/03</span> Échéances</h2>
   <div id="upcoming" class="card reveal"></div>
 </section>
 <section id="note" hidden>
@@ -76,9 +76,9 @@
   <div class="card"><h3>Notifications (ntfy)</h3>
   <p class="hint">Sujet ntfy privé (le même que le secret NTFY_TOPIC du dépôt). Voir README.</p>
   <input id="topic" placeholder="ex: routine-xxxxxxxx"><button id="saveTopic">Enregistrer</button> <button id="testNtfy">Tester</button></div>
-  <div class="card"><h3>Affichage</h3>
+  <div class="card" id="visualCard"><h3>Affichage</h3>
   <div class="seg" id="visualMode"><button data-m="perf">⚡ Performances</button><button data-m="hq">◆ Qualité visuelle</button></div>
-  <p class="hint">« Qualité visuelle » ajoute effets néon, halos, décors HUD et animations plus riches. Plus gourmand sur iPhone.</p></div>
+  <p class="hint">« Qualité visuelle » ajoute effets néon, halos, décors HUD et animations plus riches. Disponible uniquement sur PC.</p></div>
   <div class="card"><h3>Mises à jour</h3><button id="checkUpd">Rechercher une mise à jour</button><p class="hint" id="updState"></p></div>
   <div class="card"><h3>Données</h3><button id="export">Exporter (JSON)</button> <label class="btn">Importer<input id="import" type="file" accept=".json" hidden></label>
   <p class="hint" id="persist"></p></div>
