@@ -4,6 +4,23 @@ const $ = (s) => document.querySelector(s);
 const K = { notes: "lr_notes", prog: "lr_progress", auth: "lr_auth", hw: "lr_homework", topic: "lr_topic", done: "lr_done_sent", remote: "lr_progress_remote", dev: "lr_device", cur: "lr_sync_cursor", topics: "lr_topics" };
 const DEV = localStorage.getItem(K.dev) || (localStorage.setItem(K.dev, crypto.randomUUID().slice(0, 8)), localStorage.getItem(K.dev));
 const liveNotes = () => load(K.notes, []).filter((n) => !n.deleted);
+const DEFAULT_TAGS = ["BUT1", "BUT2", "BUT3", "Maths prépa", "Bourse"];
+const allTags = () => [...new Set([...DEFAULT_TAGS, ...load("lr_tags", []), ...liveNotes().map((n) => n.tag), ...load("lr_topics", []).filter((t) => !t.deleted).map((t) => t.tag)].filter(Boolean))];
+function fillTagSelect(sel, value, { any = false, none = "Sans catégorie", add = true } = {}) {
+  sel.innerHTML = (any ? '<option value="*">Toutes les catégories</option>' : "") + `<option value="">${none}</option>` + allTags().map((t) => `<option${t === value ? " selected" : ""}>${esc(t)}</option>`).join("") + (add ? '<option value="+">＋ Nouvelle catégorie…</option>' : "");
+  sel.value = value ?? (any ? "*" : "");
+  sel.dataset.prev = sel.value;
+}
+function onTagChange(sel, after) {
+  sel.addEventListener("change", () => {
+    if (sel.value === "+") {
+      const name = (prompt("Nom de la nouvelle catégorie (ex : Anglais, Python, Économie…)") || "").trim();
+      if (name) { save("lr_tags", [...new Set([...load("lr_tags", []), name])]); fillTagSelect(sel, name, sel.dataset.opts ? JSON.parse(sel.dataset.opts) : {}); }
+      else sel.value = sel.dataset.prev || "";
+    }
+    sel.dataset.prev = sel.value; after && after();
+  });
+}
 const liveTopics = () => load(K.topics, []).filter((t) => !t.deleted);
 const norm = (x) => String(x || "").trim().toLowerCase();
 const notesOf = (t) => liveNotes().filter((n) => norm(n.subject) === norm(t.name));
@@ -64,12 +81,12 @@ $("#startNote").onclick = () => startSession();
 function startSession(topic = null) {
   const notes = load(K.notes, []);
   let n = notes.filter((x) => x.date === today() && !x.deleted).find((x) => (topic ? norm(x.subject) === norm(topic) : true));
-  if (!n) { n = { id: crypto.randomUUID(), date: today(), title: "", subject: topic || "", content: "", secs: 0, createdAt: Date.now(), updatedAt: Date.now() }; notes.push(n); save(K.notes, notes); queueSync(); }
+  if (!n) { n = { id: crypto.randomUUID(), date: today(), title: "", subject: topic || "", tag: (topic && liveTopics().find((t) => norm(t.name) === norm(topic))?.tag) || "", content: "", secs: 0, createdAt: Date.now(), updatedAt: Date.now() }; notes.push(n); save(K.notes, notes); queueSync(); }
   openEditor(n.id);
 }
 function openEditor(id) {
   const n = load(K.notes, []).find((x) => x.id === id); if (!n) return;
-  current = id; $("#nTitle").value = n.title; $("#nSubject").value = n.subject; $("#topicList").innerHTML = liveTopics().map((t) => `<option value="${esc(t.name)}">`).join(""); $("#nContent").value = n.content; $("#saved").textContent = `Leçon du ${n.date}`;
+  current = id; $("#nTitle").value = n.title; $("#nSubject").value = n.subject; fillTagSelect($("#nTag"), n.tag || ""); $("#topicList").innerHTML = liveTopics().map((t) => `<option value="${esc(t.name)}">`).join(""); $("#nContent").value = n.content; $("#saved").textContent = `Leçon du ${n.date}`;
   $("#modal").hidden = true; show("note");
 }
 let saveTimer = null;
@@ -78,7 +95,7 @@ function saveNote() {
   clearTimeout(saveTimer);
   const notes = load(K.notes, []), n = notes.find((x) => x.id === current); if (!n) return;
   n.secs = (n.secs || 0) + noteSecs; noteSecs = 0;
-  Object.assign(n, { title: $("#nTitle").value, subject: $("#nSubject").value, content: $("#nContent").value, updatedAt: Date.now() });
+  Object.assign(n, { title: $("#nTitle").value, subject: $("#nSubject").value, tag: $("#nTag").value === "+" ? n.tag || "" : $("#nTag").value, content: $("#nContent").value, updatedAt: Date.now() });
   save(K.notes, notes); queueSync(); $("#saved").textContent = `Enregistré à ${new Date().toLocaleTimeString("fr-FR")}`;
 }
 ["#nTitle", "#nSubject", "#nContent"].forEach((s) => { $(s).addEventListener("input", scheduleSave); $(s).addEventListener("blur", saveNote); });
@@ -176,46 +193,49 @@ function observeReveal() { document.querySelectorAll(".reveal:not(.in)").forEach
 function saveTopics(list) { save(K.topics, list); queueSync(); renderTopics(); }
 function topicStats(t) { const ns = notesOf(t); return { sessions: ns.length, days: new Set(ns.map((n) => n.date)).size, secs: ns.reduce((a, n) => a + (n.secs || 0), 0), lines: ns.reduce((a, n) => a + (n.content || "").split("\n").filter((l) => l.trim()).length, 0), last: ns.map((n) => n.date).sort().pop() }; }
 function renderTopics() {
-  const f = $("#tFilter").value, all = liveTopics();
-  const list = all.filter((t) => f === "all" || (f === "done" ? t.doneAt : !t.doneAt))
+  const f = $("#tFilter").value, tg = $("#tTagFilter").options.length ? $("#tTagFilter").value : "*", all = liveTopics();
+  fillTagSelect($("#tTagFilter"), tg, { any: true, add: false });
+  const list = all.filter((t) => tg === "*" || (t.tag || "") === tg).filter((t) => f === "all" || (f === "done" ? t.doneAt : !t.doneAt))
     .sort((a, b) => (!!a.doneAt - !!b.doneAt) || (b.doneAt || b.createdAt) - (a.doneAt || a.createdAt));
   const done = all.filter((t) => t.doneAt), studied = all.filter((t) => topicStats(t).sessions > 0);
   const avg = done.length ? done.reduce((a, t) => a + topicStats(t).secs, 0) / done.length : 0;
   $("#tSummary").innerHTML = [["Sujets", all.length], ["Étudiés", studied.length], ["Maîtrisés", done.length], ["Temps moyen / sujet maîtrisé", done.length ? hm(avg) : "—"]].map(([l, v]) => `<div class="tile in"><div class="v">${esc(v)}</div><div class="l">${l}</div></div>`).join("");
   $("#tList").innerHTML = list.length ? list.map((t) => { const S = topicStats(t); return `<div class="card topic${t.doneAt ? " done" : ""}" data-id="${t.id}">
     <label class="chk"><input type="checkbox" class="tDone"${t.doneAt ? " checked" : ""}><span></span></label>
-    <div class="tbody"><b>${esc(t.name)}</b>
+    <div class="tbody">${t.tag ? `<span class="chip">${esc(t.tag)}</span> ` : ""}<b>${esc(t.name)}</b>
       <div class="hint">${S.sessions} session${S.sessions > 1 ? "s" : ""} · ${hm(S.secs)} · ${S.lines} lignes${S.last ? " · dernière : " + S.last : ""}${t.doneAt ? " · maîtrisé le " + new Date(t.doneAt).toLocaleDateString("fr-FR") : ""}</div>
       <div class="tact"><button class="tGo">Étudier</button> <button class="tNotes"${S.sessions ? "" : " disabled"}>Réviser les notes (${S.sessions})</button> <button class="tDel danger">✕</button></div></div></div>`; }).join("") : '<p class="hint">Aucun sujet. Ajoute ce que tu veux apprendre ci-dessus.</p>';
   document.querySelectorAll(".topic").forEach((el) => {
     const id = el.dataset.id, t = all.find((x) => x.id === id);
     el.querySelector(".tDone").onchange = (e) => saveTopics(load(K.topics, []).map((x) => (x.id === id ? { ...x, doneAt: e.target.checked ? Date.now() : null, updatedAt: Date.now() } : x)));
     el.querySelector(".tGo").onclick = () => startSession(t.name);
-    el.querySelector(".tNotes").onclick = () => { show("notes"); $("#q").value = ""; $("#qDate").value = ""; $("#sort").value = "date-asc"; $("#qSubject").innerHTML = `<option>${esc(t.name)}</option>`; $("#qSubject").value = t.name; renderList(); };
+    el.querySelector(".tNotes").onclick = () => { show("notes"); $("#q").value = ""; $("#qDate").value = ""; $("#sort").value = "date-asc"; $("#qSubject").innerHTML = `<option>${esc(t.name)}</option>`; $("#qSubject").value = t.name; fillTagSelect($("#qTag"), "*", { any: true, add: false }); renderList(); };
     el.querySelector(".tDel").onclick = () => confirm(`Supprimer le sujet « ${t.name} » ? (les notes sont conservées)`) && saveTopics(load(K.topics, []).map((x) => (x.id === id ? { id, deleted: true, updatedAt: Date.now() } : x)));
   });
 }
 $("#tAdd").onsubmit = (e) => {
   e.preventDefault(); const name = $("#tName").value.trim(); if (!name) return;
   if (liveTopics().some((t) => norm(t.name) === norm(name))) return alert("Ce sujet existe déjà.");
-  saveTopics([...load(K.topics, []), { id: crypto.randomUUID(), name, createdAt: Date.now(), doneAt: null, updatedAt: Date.now() }]); $("#tName").value = "";
+  saveTopics([...load(K.topics, []), { id: crypto.randomUUID(), name, tag: $("#tTag").value === "+" ? "" : $("#tTag").value, createdAt: Date.now(), doneAt: null, updatedAt: Date.now() }]); $("#tName").value = "";
 };
-$("#tFilter").onchange = renderTopics;
+$("#tFilter").onchange = renderTopics; $("#tTagFilter").onchange = renderTopics;
+fillTagSelect($("#tTag"), ""); onTagChange($("#tTag")); onTagChange($("#nTag"), () => scheduleSave());
 
 // ---------- Leçons ----------
 function renderList() {
   const q = $("#q").value.toLowerCase().trim(), d = $("#qDate").value, s = $("#sort").value;
-  const sj = $("#qSubject").value;
+  const sj = $("#qSubject").value, tg = $("#qTag").options.length ? $("#qTag").value : "*";
+  fillTagSelect($("#qTag"), tg, { any: true, add: false });
   const subs = [...new Set(liveNotes().map((n) => (n.subject || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
   $("#qSubject").innerHTML = '<option value="">Tous les sujets</option>' + subs.map((x) => `<option${norm(x) === norm(sj) ? " selected" : ""}>${esc(x)}</option>`).join("");
-  let notes = liveNotes().filter((n) => (!sj || norm(n.subject) === norm(sj)) && (!d || n.date === d) && (!q || `${n.title} ${n.subject} ${n.content}`.toLowerCase().includes(q)));
+  let notes = liveNotes().filter((n) => (tg === "*" || (n.tag || "") === tg) && (!sj || norm(n.subject) === norm(sj)) && (!d || n.date === d) && (!q || `${n.title} ${n.subject} ${n.content}`.toLowerCase().includes(q)));
   const cmp = { "date-desc": (a, b) => b.date.localeCompare(a.date) || b.updatedAt - a.updatedAt, "date-asc": (a, b) => a.date.localeCompare(b.date), title: (a, b) => (a.title || "").localeCompare(b.title || "", "fr"), subject: (a, b) => (a.subject || "").localeCompare(b.subject || "", "fr") || b.date.localeCompare(a.date), len: (a, b) => b.content.length - a.content.length };
   notes.sort(cmp[s]);
-  $("#list").innerHTML = notes.length ? notes.map((n) => `<div class="card item" data-id="${n.id}"><b>${esc(n.title || "(sans titre)")}</b><div class="hint">${esc(n.date)} · ${esc(n.subject || "—")}${n.secs ? " · " + hm(n.secs) : ""}</div><div class="excerpt">${esc(n.content.slice(0, 120))}</div></div>`).join("") : '<p class="hint">Aucune leçon.</p>';
+  $("#list").innerHTML = notes.length ? notes.map((n) => `<div class="card item" data-id="${n.id}"><b>${esc(n.title || "(sans titre)")}</b><div class="hint">${n.tag ? `<span class="chip">${esc(n.tag)}</span> ` : ""}${esc(n.date)} · ${esc(n.subject || "—")}${n.secs ? " · " + hm(n.secs) : ""}</div><div class="excerpt">${esc(n.content.slice(0, 120))}</div></div>`).join("") : '<p class="hint">Aucune leçon.</p>';
   document.querySelectorAll(".item").forEach((el) => (el.onclick = () => openModal(el.dataset.id)));
 }
 let listTimer; const renderListSoon = () => { clearTimeout(listTimer); listTimer = setTimeout(renderList, 120); };
-["#q", "#qDate", "#sort", "#qSubject"].forEach((s) => $(s).addEventListener("input", renderListSoon));
+["#q", "#qDate", "#sort", "#qSubject", "#qTag"].forEach((s) => $(s).addEventListener("input", renderListSoon));
 function openModal(id) {
   const n = load(K.notes, []).find((x) => x.id === id);
   $("#mTitle").textContent = n.title || "(sans titre)"; $("#mMeta").textContent = `${n.date} · ${n.subject || "—"}`; $("#mBody").textContent = n.content;
@@ -281,8 +301,8 @@ async function syncAll(full = false) {
     for (const t of topics) if (!known.has(t.id)) tPush.push(t);
     save(K.topics, [...tById.values()]);
     save(K.notes, [...byId.values()]); save(K.remote, remote);
-    const body = push.map((n) => ({ id: n.id, kind: "note", deleted: !!n.deleted, updated_at: n.updatedAt, data: n.deleted ? { date: n.date } : { date: n.date, title: n.title, subject: n.subject, content: n.content, secs: Math.round(n.secs || 0), createdAt: n.createdAt } }));
-    for (const t of tPush) body.push({ id: t.id, kind: "topic", deleted: !!t.deleted, updated_at: t.updatedAt, data: t.deleted ? {} : { name: t.name, createdAt: t.createdAt, doneAt: t.doneAt || null } });
+    const body = push.map((n) => ({ id: n.id, kind: "note", deleted: !!n.deleted, updated_at: n.updatedAt, data: n.deleted ? { date: n.date } : { date: n.date, title: n.title, subject: n.subject, content: n.content, tag: n.tag || "", secs: Math.round(n.secs || 0), createdAt: n.createdAt } }));
+    for (const t of tPush) body.push({ id: t.id, kind: "topic", deleted: !!t.deleted, updated_at: t.updatedAt, data: t.deleted ? {} : { name: t.name, tag: t.tag || "", createdAt: t.createdAt, doneAt: t.doneAt || null } });
     for (const [date, sec] of Object.entries(load(K.prog, {}))) if (!remote[date] || Math.abs((remote[date][DEV] || 0) - sec) > 1) body.push({ id: `p-${date}-${DEV}`, kind: "progress", deleted: false, updated_at: Date.now(), data: { date, dev: DEV, sec: Math.round(sec) } });
     if (body.length) {
       const r = await fetch(`${C.supabaseUrl}/rest/v1/lr_items?on_conflict=user_id,id`, { method: "POST", headers: { ...H(t), Prefer: "resolution=merge-duplicates" }, body: JSON.stringify(body) });
@@ -317,6 +337,16 @@ window.lrStatus = () => { const left = GOAL - progress(); return { done: left <=
 navigator.storage?.persist?.().then((ok) => ($("#persist").textContent = ok ? "Stockage persistant activé." : "Pense à exporter régulièrement tes notes."));
 // ---------- Mises à jour automatiques ----------
 function updateBar(msg, label, fn) { $("#updMsg").textContent = msg; $("#updBtn").textContent = label; $("#updBtn").onclick = fn; $("#updBar").hidden = false; }
+$("#checkUpd").onclick = async () => {
+  const st = $("#updState"); st.textContent = "Recherche en cours…";
+  try {
+    if (window.desktop?.check) { const r = await window.desktop.check(); st.textContent = r.state === "none" ? `Tu as la dernière version (${r.version}).` : r.state === "available" ? `Version ${r.version} trouvée : téléchargement en cours, un bandeau proposera de redémarrer.` : `Erreur : ${r.error || "impossible de vérifier"}`; return; }
+    const reg = await navigator.serviceWorker?.getRegistration(); if (!reg) { st.textContent = "Mises à jour indisponibles dans ce mode."; return; }
+    await reg.update();
+    if (reg.installing || reg.waiting) { st.textContent = "Nouvelle version trouvée : rechargement…"; setTimeout(() => { if (current) saveNote(); location.reload(); }, 800); }
+    else st.textContent = `Tu as la dernière version (${$("#ver").textContent}).`;
+  } catch (e) { st.textContent = "Erreur : " + e.message; }
+};
 if (window.desktop) {
   window.desktop.onUpdate((s) => {
     if (s.state === "available") updateBar(`Mise à jour ${s.version} : téléchargement…`, "OK", () => ($("#updBar").hidden = true));
