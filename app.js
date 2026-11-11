@@ -1,3 +1,4 @@
+import { uiAlert, uiConfirm, uiPrompt, initEditor, sanitize, textToHtml } from "./ui.js";
 import { skipReason, parisToday, isImportant, addDays } from "./skip.js";
 const C = window.LR_CONFIG, GOAL = C.goalMinutes * 60;
 const $ = (s) => document.querySelector(s);
@@ -12,9 +13,9 @@ function fillTagSelect(sel, value, { any = false, none = "Sans catégorie", add 
   sel.dataset.prev = sel.value;
 }
 function onTagChange(sel, after) {
-  sel.addEventListener("change", () => {
+  sel.addEventListener("change", async () => {
     if (sel.value === "+") {
-      const name = (prompt("Nom de la nouvelle catégorie (ex : Anglais, Python, Économie…)") || "").trim();
+      const name = ((await uiPrompt("Nom de la nouvelle catégorie", { title: "Nouvelle catégorie", placeholder: "ex : Anglais, Python, Économie…", ok: "Créer" })) || "").trim();
       if (name) { save("lr_tags", [...new Set([...load("lr_tags", []), name])]); fillTagSelect(sel, name, sel.dataset.opts ? JSON.parse(sel.dataset.opts) : {}); }
       else sel.value = sel.dataset.prev || "";
     }
@@ -86,7 +87,7 @@ function startSession(topic = null) {
 }
 function openEditor(id) {
   const n = load(K.notes, []).find((x) => x.id === id); if (!n) return;
-  current = id; $("#nTitle").value = n.title; $("#nSubject").value = n.subject; fillTagSelect($("#nTag"), n.tag || ""); $("#topicList").innerHTML = liveTopics().map((t) => `<option value="${esc(t.name)}">`).join(""); $("#nContent").value = n.content; $("#saved").textContent = `Leçon du ${n.date}`;
+  current = id; $("#nTitle").value = n.title; $("#nSubject").value = n.subject; fillTagSelect($("#nTag"), n.tag || ""); $("#topicList").innerHTML = liveTopics().map((t) => `<option value="${esc(t.name)}">`).join(""); editor.set(n.html ? sanitize(n.html) : textToHtml(n.content)); $("#saved").textContent = `Leçon du ${n.date}`;
   $("#modal").hidden = true; show("note");
 }
 let saveTimer = null;
@@ -95,10 +96,15 @@ function saveNote() {
   clearTimeout(saveTimer);
   const notes = load(K.notes, []), n = notes.find((x) => x.id === current); if (!n) return;
   n.secs = (n.secs || 0) + noteSecs; noteSecs = 0;
-  Object.assign(n, { title: $("#nTitle").value, subject: $("#nSubject").value, tag: $("#nTag").value === "+" ? n.tag || "" : $("#nTag").value, content: $("#nContent").value, updatedAt: Date.now() });
+  Object.assign(n, { title: $("#nTitle").value, subject: $("#nSubject").value, tag: $("#nTag").value === "+" ? n.tag || "" : $("#nTag").value, content: editor.text(), html: editor.html(), updatedAt: Date.now() });
   save(K.notes, notes); queueSync(); $("#saved").textContent = `Enregistré à ${new Date().toLocaleTimeString("fr-FR")}`;
 }
+const editor = initEditor($("#nContent"), $("#rtBar"), scheduleSave);
 ["#nTitle", "#nSubject", "#nContent"].forEach((s) => { $(s).addEventListener("input", scheduleSave); $(s).addEventListener("blur", saveNote); });
+// Entrée dans le titre/sujet : passe au champ suivant au lieu de « valider »
+$("#nTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#nSubject").focus(); } });
+$("#nSubject").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#nContent").focus(); } });
+$("#q").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); renderList(); } });
 addEventListener("pagehide", () => current && saveNote());
 document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && current && saveNote());
 $("#closeNote").onclick = () => { saveNote(); current = null; show("today"); };
@@ -215,13 +221,13 @@ function renderTopics() {
     el.querySelector(".tDone").onchange = (e) => saveTopics(load(K.topics, []).map((x) => (x.id === id ? { ...x, doneAt: e.target.checked ? Date.now() : null, updatedAt: Date.now() } : x)));
     el.querySelector(".tGo").onclick = () => startSession(t.name);
     el.querySelector(".tNotes").onclick = () => { show("notes"); $("#q").value = ""; $("#qDate").value = ""; $("#sort").value = "date-asc"; $("#qSubject").innerHTML = `<option>${esc(t.name)}</option>`; $("#qSubject").value = t.name; fillTagSelect($("#qTag"), "*", { any: true, add: false }); renderList(); };
-    el.querySelector(".tDel").onclick = () => confirm(`Supprimer le sujet « ${t.name} » ? (les notes sont conservées)`) && saveTopics(load(K.topics, []).map((x) => (x.id === id ? { id, deleted: true, updatedAt: Date.now() } : x)));
+    el.querySelector(".tDel").onclick = async () => (await uiConfirm(`Supprimer le sujet « ${t.name} » ? (les notes sont conservées)`, { ok: "Supprimer", danger: true })) && saveTopics(load(K.topics, []).map((x) => (x.id === id ? { id, deleted: true, updatedAt: Date.now() } : x)));
   });
 }
 $("#tAdd").onsubmit = (e) => {
   e.preventDefault(); const name = $("#tName").value.trim(); if (!name) return;
-  if (liveTopics().some((t) => norm(t.name) === norm(name))) return alert("Ce sujet existe déjà.");
-  saveTopics([...load(K.topics, []), { id: crypto.randomUUID(), name, tag: $("#tTag").value === "+" ? "" : $("#tTag").value, createdAt: Date.now(), doneAt: null, updatedAt: Date.now() }]); $("#tName").value = "";
+  if (liveTopics().some((t) => norm(t.name) === norm(name))) return uiAlert("Ce sujet existe déjà.");
+  saveTopics([...load(K.topics, []), { id: crypto.randomUUID(), name, tag: $("#tTag").value === "+" ? "" : $("#tTag").value, createdAt: Date.now(), doneAt: null, updatedAt: Date.now() }]); $("#tName").value = ""; $("#tName").focus();
 };
 $("#tFilter").onchange = renderTopics; $("#tTagFilter").onchange = renderTopics;
 fillTagSelect($("#tTag"), ""); onTagChange($("#tTag")); onTagChange($("#nTag"), () => scheduleSave());
@@ -243,9 +249,9 @@ let listTimer; const renderListSoon = () => { clearTimeout(listTimer); listTimer
 ["#q", "#qDate", "#sort", "#qSubject", "#qTag"].forEach((s) => $(s).addEventListener("input", renderListSoon));
 function openModal(id) {
   const n = load(K.notes, []).find((x) => x.id === id);
-  $("#mTitle").textContent = n.title || "(sans titre)"; $("#mMeta").textContent = `${n.date} · ${n.subject || "—"}`; $("#mBody").textContent = n.content;
+  $("#mTitle").textContent = n.title || "(sans titre)"; $("#mMeta").textContent = `${n.date} · ${n.subject || "—"}`; $("#mBody").innerHTML = n.html ? sanitize(n.html) : textToHtml(n.content);
   $("#mEdit").onclick = () => openEditor(id);
-  $("#mDel").onclick = () => { if (confirm("Supprimer cette leçon ?")) { save(K.notes, load(K.notes, []).map((x) => x.id === id ? { id, date: x.date, deleted: true, updatedAt: Date.now() } : x)); queueSync(); $("#modal").hidden = true; renderList(); } };
+  $("#mDel").onclick = async () => { if (await uiConfirm("Supprimer cette leçon ?", { ok: "Supprimer", danger: true })) { save(K.notes, load(K.notes, []).map((x) => x.id === id ? { id, date: x.date, deleted: true, updatedAt: Date.now() } : x)); queueSync(); $("#modal").hidden = true; renderList(); } };
   $("#modal").hidden = false;
 }
 $("#mClose").onclick = () => ($("#modal").hidden = true);
@@ -273,9 +279,9 @@ function renderSettings() {
   $("#authState").textContent = load(K.auth, null) ? `Connecté. ${hw ? hw.items.length + " devoirs, synchro " + new Date(hw.at).toLocaleString("fr-FR") : ""}` : "Non connecté.";
   $("#topic").value = load(K.topic, "");
 }
-$("#login").onclick = async () => { try { await auth({ email: C.email, password: $("#pwd").value }, "password"); $("#pwd").value = ""; await syncHomework(); await syncAll(true); } catch (e) { alert(e.message); } renderSettings(); };
-$("#sync").onclick = async () => { try { await syncHomework(); await syncAll(true); } catch (e) { alert(e.message); } renderSettings(); };
-$("#saveTopic").onclick = () => { save(K.topic, $("#topic").value.trim()); alert("Enregistré"); };
+$("#login").onclick = async () => { try { await auth({ email: C.email, password: $("#pwd").value }, "password"); $("#pwd").value = ""; await syncHomework(); await syncAll(true); } catch (e) { uiAlert(e.message, "Erreur"); } renderSettings(); };
+$("#sync").onclick = async () => { try { await syncHomework(); await syncAll(true); } catch (e) { uiAlert(e.message, "Erreur"); } renderSettings(); };
+$("#saveTopic").onclick = () => { save(K.topic, $("#topic").value.trim()); uiAlert("Sujet ntfy enregistré."); };
 $("#testNtfy").onclick = () => fetch(`https://ntfy.sh/${encodeURIComponent($("#topic").value.trim())}`, { method: "POST", body: "Test de la routine d'apprentissage ✅" });
 
 // ---------- Synchronisation entre appareils (table lr_items) ----------
@@ -306,7 +312,7 @@ async function syncAll(full = false) {
     for (const t of topics) if (!known.has(t.id)) tPush.push(t);
     save(K.topics, [...tById.values()]);
     save(K.notes, [...byId.values()]); save(K.remote, remote);
-    const body = push.map((n) => ({ id: n.id, kind: "note", deleted: !!n.deleted, updated_at: n.updatedAt, data: n.deleted ? { date: n.date } : { date: n.date, title: n.title, subject: n.subject, content: n.content, tag: n.tag || "", secs: Math.round(n.secs || 0), createdAt: n.createdAt } }));
+    const body = push.map((n) => ({ id: n.id, kind: "note", deleted: !!n.deleted, updated_at: n.updatedAt, data: n.deleted ? { date: n.date } : { date: n.date, title: n.title, subject: n.subject, content: n.content, html: n.html || "", tag: n.tag || "", secs: Math.round(n.secs || 0), createdAt: n.createdAt } }));
     for (const t of tPush) body.push({ id: t.id, kind: "topic", deleted: !!t.deleted, updated_at: t.updatedAt, data: t.deleted ? {} : { name: t.name, tag: t.tag || "", createdAt: t.createdAt, doneAt: t.doneAt || null } });
     for (const [date, sec] of Object.entries(load(K.prog, {}))) if (!remote[date] || Math.abs((remote[date][DEV] || 0) - sec) > 1) body.push({ id: `p-${date}-${DEV}`, kind: "progress", deleted: false, updated_at: Date.now(), data: { date, dev: DEV, sec: Math.round(sec) } });
     if (body.length) {
@@ -335,7 +341,7 @@ $("#import").onchange = async (e) => {
   for (const n of d.notes || []) if (!ids.has(n.id)) notes.push(n);
   const p = load(K.prog, {}); for (const [k, v] of Object.entries(d.progress || {})) p[k] = Math.max(p[k] || 0, v);
   const tp = load(K.topics, []), tids = new Set(tp.map((t) => t.id)); for (const t of d.topics || []) if (!tids.has(t.id)) tp.push(t);
-  save(K.topics, tp); save(K.notes, notes); save(K.prog, p); syncAll(true); alert("Import terminé (fusion, rien n'est écrasé)."); show("today");
+  save(K.topics, tp); save(K.notes, notes); save(K.prog, p); syncAll(true); uiAlert("Import terminé (fusion, rien n'est écrasé)."); show("today");
 };
 
 window.lrStatus = () => { const left = GOAL - progress(); return { done: left <= 0, skipped: !!skipReason(today(), load(K.hw, { items: [] }).items), left: Math.ceil(Math.max(0, left) / 60) }; };

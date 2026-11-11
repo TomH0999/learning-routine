@@ -13,6 +13,8 @@ function createWindow() {
   win = new BrowserWindow({ width: 1000, height: 800, icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true, backgroundColor: "#050507", show: false, webPreferences: { preload: path.join(__dirname, "preload.js"), spellcheck: false, backgroundThrottling: true } });
   win.once("ready-to-show", () => { if (!process.argv.includes("--hidden")) win.show(); });
   win.loadFile(path.join(__dirname, "app/index.html"));
+  // rend le focus clavier à la page quand la fenêtre redevient active (évite les champs « gelés »)
+  win.on("focus", () => win.webContents.focus());
   win.on("close", (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
 }
 const showWin = () => { win.show(); win.focus(); };
