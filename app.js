@@ -20,6 +20,7 @@ function show(v) {
   for (const s of document.querySelectorAll("main>section")) s.hidden = s.id !== v;
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   $("nav").hidden = v === "note";
+  if (window.heroKick) setTimeout(window.heroKick);
   if (v === "today") renderToday(); if (v === "notes") renderList(); if (v === "topics") renderTopics(); if (v === "settings") renderSettings();
 }
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => show(b.dataset.v)));
@@ -71,13 +72,18 @@ function openEditor(id) {
   current = id; $("#nTitle").value = n.title; $("#nSubject").value = n.subject; $("#topicList").innerHTML = liveTopics().map((t) => `<option value="${esc(t.name)}">`).join(""); $("#nContent").value = n.content; $("#saved").textContent = `Leçon du ${n.date}`;
   $("#modal").hidden = true; show("note");
 }
+let saveTimer = null;
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNote, 500); }
 function saveNote() {
+  clearTimeout(saveTimer);
   const notes = load(K.notes, []), n = notes.find((x) => x.id === current); if (!n) return;
   n.secs = (n.secs || 0) + noteSecs; noteSecs = 0;
   Object.assign(n, { title: $("#nTitle").value, subject: $("#nSubject").value, content: $("#nContent").value, updatedAt: Date.now() });
   save(K.notes, notes); queueSync(); $("#saved").textContent = `Enregistré à ${new Date().toLocaleTimeString("fr-FR")}`;
 }
-["#nTitle", "#nSubject", "#nContent"].forEach((s) => $(s).addEventListener("input", saveNote));
+["#nTitle", "#nSubject", "#nContent"].forEach((s) => { $(s).addEventListener("input", scheduleSave); $(s).addEventListener("blur", saveNote); });
+addEventListener("pagehide", () => current && saveNote());
+document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && current && saveNote());
 $("#closeNote").onclick = () => { saveNote(); current = null; show("today"); };
 
 // ---------- Tableau de bord ----------
@@ -137,18 +143,33 @@ function observeReveal() { document.querySelectorAll(".reveal:not(.in)").forEach
 
 // ---------- Animations de la page d'accueil ----------
 (function heroFx() {
-  const c = $("#stars"), x = c.getContext("2d"); let W, H, P = [];
-  const size = () => { W = c.width = c.offsetWidth * devicePixelRatio; H = c.height = c.offsetHeight * devicePixelRatio; P = [...Array(70)].map(() => ({ x: Math.random() * W, y: Math.random() * H, v: (.2 + Math.random() * .8) * devicePixelRatio, r: Math.random() * 1.6 * devicePixelRatio, c: Math.random() < .15 ? "41,224,255" : "255,42,61" })); };
-  size(); addEventListener("resize", size);
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  (function loop() {
-    x.clearRect(0, 0, W, H);
-    for (const p of P) { p.y -= reduce ? 0 : p.v; if (p.y < 0) { p.y = H; p.x = Math.random() * W; } x.fillStyle = `rgba(${p.c},${.3 + p.r / 3})`; x.fillRect(p.x, p.y, p.r, p.r * 3); }
-    if (!$("#today").hidden) requestAnimationFrame(loop); else setTimeout(loop, 500);
-  })();
-  setInterval(() => { $("#clock").textContent = new Date().toLocaleTimeString("fr-FR"); }, 1000);
+  const c = $("#stars"), x = c.getContext("2d", { alpha: true }), hero = $(".hero"), orb = $(".orb"), txt = $(".hero-txt");
+  const mobile = matchMedia("(max-width: 700px)").matches, reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const dpr = Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2), N = mobile ? 28 : 55;
+  let W, H, P = [], visible = true, running = false, last = 0;
+  const size = () => { W = c.width = Math.round(c.offsetWidth * dpr); H = c.height = Math.round(c.offsetHeight * dpr); P = [...Array(N)].map(() => ({ x: Math.random() * W, y: Math.random() * H, v: (.25 + Math.random() * .8) * dpr, r: (.6 + Math.random()) * dpr, c: Math.random() < .15 ? "#29e0ff" : "#ff2a3d", a: .35 + Math.random() * .5 })); };
+  let rs; addEventListener("resize", () => { clearTimeout(rs); rs = setTimeout(size, 200); }); size();
+  const active = () => visible && !$("#today").hidden && document.visibilityState === "visible";
+  function frame(t) {
+    if (!active()) { running = false; return; }
+    if (t - last >= (mobile ? 33 : 16)) { // ~30 fps sur mobile
+      const k = last ? Math.min(3, (t - last) / 16) : 1; last = t;
+      x.clearRect(0, 0, W, H);
+      for (const p of P) { p.y -= p.v * k; if (p.y < 0) { p.y = H; p.x = Math.random() * W; } x.globalAlpha = p.a; x.fillStyle = p.c; x.fillRect(p.x, p.y, p.r, p.r * 3); }
+    }
+    requestAnimationFrame(frame);
+  }
+  const kick = () => { hero.classList.toggle("paused", !active()); if (!reduce && active() && !running) { running = true; last = 0; requestAnimationFrame(frame); } };
+  window.heroKick = kick;
+  if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => { visible = e.isIntersecting; kick(); }).observe(hero);
+  document.addEventListener("visibilitychange", kick); kick();
+  setInterval(() => { if (active()) $("#clock").textContent = new Date().toLocaleTimeString("fr-FR"); }, 1000);
   let n = 0; const t = setInterval(() => { n = Math.min(100, n + 3 + Math.round(Math.random() * 6)); $("#pct").textContent = n; if (n >= 100) clearInterval(t); }, 60);
-  addEventListener("scroll", () => { const y = scrollY; document.querySelector(".orb").style.transform = `translateY(${y * .25}px) rotate(${y * .03}deg)`; document.querySelector(".hero-txt").style.transform = `translateY(${y * .12}px)`; document.querySelector(".hero-txt").style.opacity = Math.max(0, 1 - y / 500); }, { passive: true });
+  let ticking = false;
+  if (!reduce) addEventListener("scroll", () => {
+    if (ticking || !visible) return; ticking = true;
+    requestAnimationFrame(() => { ticking = false; const y = Math.min(scrollY, 900); orb.style.transform = `translate3d(0,${y * .25}px,0)`; txt.style.transform = `translate3d(0,${y * .12}px,0)`; txt.style.opacity = Math.max(0, 1 - y / 500); });
+  }, { passive: true });
 })();
 
 // ---------- Sujets à étudier ----------
@@ -193,7 +214,8 @@ function renderList() {
   $("#list").innerHTML = notes.length ? notes.map((n) => `<div class="card item" data-id="${n.id}"><b>${esc(n.title || "(sans titre)")}</b><div class="hint">${esc(n.date)} · ${esc(n.subject || "—")}${n.secs ? " · " + hm(n.secs) : ""}</div><div class="excerpt">${esc(n.content.slice(0, 120))}</div></div>`).join("") : '<p class="hint">Aucune leçon.</p>';
   document.querySelectorAll(".item").forEach((el) => (el.onclick = () => openModal(el.dataset.id)));
 }
-["#q", "#qDate", "#sort", "#qSubject"].forEach((s) => $(s).addEventListener("input", renderList));
+let listTimer; const renderListSoon = () => { clearTimeout(listTimer); listTimer = setTimeout(renderList, 120); };
+["#q", "#qDate", "#sort", "#qSubject"].forEach((s) => $(s).addEventListener("input", renderListSoon));
 function openModal(id) {
   const n = load(K.notes, []).find((x) => x.id === id);
   $("#mTitle").textContent = n.title || "(sans titre)"; $("#mMeta").textContent = `${n.date} · ${n.subject || "—"}`; $("#mBody").textContent = n.content;
@@ -267,8 +289,14 @@ async function syncAll(full = false) {
       if (!r.ok) throw new Error("envoi refusé");
     }
     save(K.cur, start); setSync(`Synchronisé ${new Date().toLocaleTimeString("fr-FR")}`);
-    if (!$("#notes").hidden) renderList(); if (!$("#topics").hidden) renderTopics(); if (!$("#today").hidden) renderToday();
+    rerenderWhenIdle();
   } catch (e) { setSync("Erreur de synchro : " + e.message); } finally { syncing = false; }
+}
+const typing = () => { const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); };
+let pendingRender = false;
+function rerenderWhenIdle() {
+  if (typing()) { if (!pendingRender) { pendingRender = true; document.addEventListener("focusout", () => { pendingRender = false; setTimeout(rerenderWhenIdle, 50); }, { once: true }); } return; }
+  if (!$("#notes").hidden) renderList(); if (!$("#topics").hidden) renderTopics(); if (!$("#today").hidden) renderToday();
 }
 function setSync(m) { const el = $("#syncState"); if (el) el.textContent = m; }
 
@@ -297,7 +325,7 @@ if (window.desktop) {
 } else if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register("sw.js").then((reg) => setInterval(() => reg.update(), 30 * 60 * 1000));
-  navigator.serviceWorker.addEventListener("controllerchange", () => { if (!hadController) return; if ($("#note").hidden) location.reload(); else updateBar("Nouvelle version disponible", "Recharger", () => { saveNote(); location.reload(); }); });
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (!hadController) return; if ($("#note").hidden && !typing()) location.reload(); else updateBar("Nouvelle version disponible", "Recharger", () => { saveNote(); location.reload(); }); });
 }
 syncHomework().catch(() => {}).finally(renderToday);
 syncAll();

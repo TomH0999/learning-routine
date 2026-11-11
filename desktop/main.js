@@ -5,10 +5,13 @@ const { autoUpdater } = require("electron-updater");
 const path = require("path");
 let win, tray, quitting = false;
 if (!app.requestSingleInstanceLock()) app.quit();
+app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("enable-zero-copy");
 app.setAppUserModelId("io.github.tomh0999.learningroutine");
 
 function createWindow() {
-  win = new BrowserWindow({ width: 1000, height: 800, icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true, backgroundColor: "#050507", webPreferences: { preload: path.join(__dirname, "preload.js") } });
+  win = new BrowserWindow({ width: 1000, height: 800, icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true, backgroundColor: "#050507", show: false, webPreferences: { preload: path.join(__dirname, "preload.js"), spellcheck: false, backgroundThrottling: true } });
+  win.once("ready-to-show", () => { if (!process.argv.includes("--hidden")) win.show(); });
   win.loadFile(path.join(__dirname, "app/index.html"));
   win.on("close", (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
 }

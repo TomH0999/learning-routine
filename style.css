@@ -28,7 +28,7 @@ textarea{min-height:60vh;resize:vertical;line-height:1.6}
 .item{cursor:pointer}.item b{text-transform:uppercase;letter-spacing:.04em}.item:hover{border-color:var(--ac)}
 .excerpt{color:#bbb;font-size:.85rem;margin-top:4px}
 #mBody{white-space:pre-wrap;max-height:60vh;overflow:auto;margin-bottom:10px}
-#modal{position:fixed;inset:0;background:rgba(0,0,0,.8);padding:40px 12px;overflow:auto;backdrop-filter:blur(4px)}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.88);padding:40px 12px;overflow:auto;-webkit-overflow-scrolling:touch}
 #dayStatus{border-left:4px solid var(--ac);text-transform:uppercase;font-size:.85rem;letter-spacing:.04em}
 #upcoming div{border-bottom:1px dashed var(--line);padding:6px 0}
 .tape{height:14px;margin-top:24px;background:repeating-linear-gradient(-45deg,var(--ac) 0 14px,#050507 14px 28px);box-shadow:var(--glow)}
@@ -39,14 +39,17 @@ textarea{min-height:60vh;resize:vertical;line-height:1.6}
 html{scroll-behavior:smooth}
 /* ---- Hero ---- */
 .hero{position:relative;min-height:calc(100svh - 150px);display:grid;align-items:end;overflow:hidden;margin:0 -14px 20px;padding:0 18px 70px;border-bottom:1px solid var(--line)}
-#stars{position:absolute;inset:0;width:100%;height:100%;opacity:.7}
+#stars{position:absolute;inset:0;width:100%;height:100%;opacity:.7;pointer-events:none}
 .hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px)}
-.orb{position:absolute;top:2%;right:-14%;width:min(115vw,620px);opacity:.95;will-change:transform;filter:drop-shadow(0 0 30px rgba(255,42,61,.35))}
+.orb{position:absolute;top:2%;right:-14%;width:min(115vw,620px);aspect-ratio:1;opacity:.95;will-change:transform;pointer-events:none;contain:strict}
 @media(min-width:760px){.orb{right:-4%;top:50%;margin-top:-300px}.hero{align-items:center}}
-.spin-slow{transform-origin:200px 200px;animation:spin 40s linear infinite}.spin-rev{transform-origin:200px 200px;animation:spin 60s linear infinite reverse}
-.mer{transform-origin:200px 200px;animation:squash 6s ease-in-out infinite}.m2{animation-delay:-2s}.m3{animation-delay:-4s}
-@keyframes squash{50%{transform:scaleX(.15)}}@keyframes spin{to{transform:rotate(360deg)}}
-.scan{animation:scan 4s ease-in-out infinite}@keyframes scan{0%,100%{transform:translateX(-150px)}50%{transform:translateX(150px)}}
+.lyr{position:absolute;inset:0;width:100%;height:100%;will-change:transform;backface-visibility:hidden}
+.core{border-radius:50%;background:radial-gradient(circle at 50% 45%,rgba(255,77,94,.85),rgba(179,0,27,.3) 45%,transparent 70%)}
+.spin-slow{animation:spin 40s linear infinite}.spin-rev{animation:spin 60s linear infinite reverse}.globe{animation:spin 90s linear infinite}
+.px{position:absolute;aspect-ratio:1;background:#ff2a3d;box-shadow:0 0 10px #ff2a3d;will-change:opacity}
+.beam{position:absolute;left:49%;top:0;width:2%;height:100%;background:linear-gradient(180deg,transparent,rgba(255,42,61,.9),transparent);will-change:transform}
+.paused .lyr,.paused .px,.paused .beam,.paused .glitch::before,.paused .glitch::after,.paused .dot,.paused .scroll-cue{animation-play-state:paused!important}@keyframes spin{to{transform:rotate(360deg)}}
+.scan{animation:scan 4s ease-in-out infinite}@keyframes scan{0%,100%{transform:translateX(-1200%)}50%{transform:translateX(1200%)}}
 .blink{animation:blink 1.6s steps(2) infinite}.d2{animation-delay:.5s}.d3{animation-delay:1s}@keyframes blink{50%{opacity:.15}}
 .hud{position:absolute;font-size:.62rem;letter-spacing:.14em;color:#ff8a95;text-transform:uppercase;z-index:2}.hud.tl{top:16px;left:18px}.hud.tr{top:16px;right:18px;text-align:right}
 .hero-txt{position:relative;z-index:2;will-change:transform}
@@ -97,3 +100,12 @@ button:disabled{opacity:.35;cursor:default}
 .chk span{display:block;width:28px;height:28px;border:2px solid var(--ac);box-shadow:0 0 8px rgba(255,42,61,.4)}
 .chk input:checked+span{background:var(--ac);box-shadow:var(--glow)}.chk input:checked+span::after{content:"✓";color:#fff;font-weight:800;display:grid;place-items:center;height:100%}
 #tSummary .tile{min-height:84px}
+
+/* ---- Perf / tactile ---- */
+html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+input,textarea,select,button{touch-action:manipulation}
+.hero,.hud,.tape,.scroll-cue{user-select:none;-webkit-user-select:none}
+.hero::after{pointer-events:none}
+#note textarea{min-height:55vh;min-height:55dvh}
+#timer{text-shadow:0 0 6px #ff2a3d,0 0 22px #ff2a3d}
+@media(max-width:700px){.card::before,.card::after{filter:none}.tile .v{text-shadow:none}.tile::after{box-shadow:none}.glitch{text-shadow:0 0 12px rgba(255,42,61,.45)}.glitch.outline{filter:none}}
