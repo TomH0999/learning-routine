@@ -1,5 +1,7 @@
 // Mode « Qualité visuelle » : choix dans Réglages + décors supplémentaires (aucun effet en mode Performances).
 const root = document.documentElement, HQ = root.classList.contains("hq");
+const PC = matchMedia("(hover:hover) and (pointer:fine)").matches;
+if (!PC) document.getElementById("visualCard").hidden = true;
 const seg = document.getElementById("visualMode");
 seg.querySelectorAll("button").forEach((b) => {
   b.classList.toggle("on", (b.dataset.m === "hq") === HQ);
@@ -48,4 +50,35 @@ if (HQ) {
   const prog = document.getElementById("prog");
   const sync = () => { const p = parseFloat(prog.style.width) || 0; val.style.strokeDashoffset = C * (1 - p / 100); };
   new MutationObserver(sync).observe(prog, { attributes: true, attributeFilter: ["style"] }); sync();
+}
+
+// ---------- Effets au survol (PC, mode Qualité) ----------
+if (HQ && PC) {
+  root.classList.add("hq-pc");
+  const SEL = ".card,.tile,.item,.topic,.badge,button,.btn";
+  // projecteur qui suit la souris + inclinaison 3D des tuiles
+  document.addEventListener("pointermove", (e) => {
+    const t = e.target.closest && e.target.closest(SEL); if (!t) return;
+    const r = t.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    t.style.setProperty("--mx", x + "px"); t.style.setProperty("--my", y + "px");
+    if (t.classList.contains("tile")) t.style.transform = `perspective(700px) rotateX(${(.5 - y / r.height) * 8}deg) rotateY(${(x / r.width - .5) * 10}deg) translateY(-3px)`;
+  }, { passive: true });
+  document.addEventListener("pointerout", (e) => { const t = e.target.closest && e.target.closest(".tile"); if (t && !t.contains(e.relatedTarget)) t.style.transform = ""; });
+  // curseur réticule
+  const cur = document.createElement("div"); cur.className = "hq-cursor"; cur.innerHTML = "<i></i>"; document.body.append(cur);
+  let cx = innerWidth / 2, cy = innerHeight / 2, tx = cx, ty = cy, raf = 0;
+  const move = () => { cx += (tx - cx) * .25; cy += (ty - cy) * .25; cur.style.transform = `translate3d(${cx}px,${cy}px,0)`; raf = Math.abs(tx - cx) + Math.abs(ty - cy) > .3 ? requestAnimationFrame(move) : 0; };
+  document.addEventListener("pointermove", (e) => { tx = e.clientX; ty = e.clientY; cur.classList.toggle("on-link", !!e.target.closest("button,a,.item,.topic,.tile,select,label,input[type=checkbox]")); cur.classList.toggle("on-text", !!e.target.closest("input:not([type=checkbox]),textarea")); if (!raf) raf = requestAnimationFrame(move); }, { passive: true });
+  document.addEventListener("pointerdown", () => cur.classList.add("down")); document.addEventListener("pointerup", () => cur.classList.remove("down"));
+  document.addEventListener("mouseleave", () => cur.classList.add("gone")); document.addEventListener("mouseenter", () => cur.classList.remove("gone"));
+  // le globe suit légèrement la souris
+  const hero = document.querySelector(".hero"), orb = document.querySelector(".orb");
+  hero.addEventListener("pointermove", (e) => { const r = hero.getBoundingClientRect(); orb.style.setProperty("--ox", ((e.clientX - r.left) / r.width - .5) * 24 + "px"); orb.style.setProperty("--oy", ((e.clientY - r.top) / r.height - .5) * 18 + "px"); }, { passive: true });
+  // texte « décodage » au survol des titres
+  const CH = "▓▒░<>/\\|_-=+*#01";
+  document.querySelectorAll(".sec,nav button,.big").forEach((n) => n.addEventListener("mouseenter", () => {
+    const node = [...n.childNodes].reverse().find((c) => c.nodeType === 3 && c.textContent.trim()); if (!node || n.dataset.dec) return;
+    const final = node.textContent; n.dataset.dec = 1; let i = 0;
+    const id = setInterval(() => { i += 1.2; node.textContent = final.split("").map((c, k) => (k < i || c === " " ? c : CH[(Math.random() * CH.length) | 0])).join(""); if (i >= final.length) { clearInterval(id); node.textContent = final; delete n.dataset.dec; } }, 22);
+  }));
 }
