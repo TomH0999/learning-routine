@@ -133,3 +133,15 @@ html.hq-pc ::-webkit-scrollbar{width:10px}html.hq-pc ::-webkit-scrollbar-track{b
 html.hq-pc ::-webkit-scrollbar-thumb{background:linear-gradient(#ff2a3d,#8a0f1d);border:2px solid #070509;box-shadow:0 0 8px #ff2a3d}
 html.hq-pc ::selection{background:#ff2a3d;color:#fff}
 @media(min-width:820px){html.hq .hq-frame{inset:44px 18px 14px}}
+
+/* Éditeur + dialogues en mode Qualité */
+html.hq .rt-bar{background:linear-gradient(180deg,rgba(28,10,16,.95),rgba(8,5,9,.95));border-color:rgba(255,42,61,.35);box-shadow:0 10px 30px -20px #ff2a3d,inset 0 1px 0 rgba(255,255,255,.04)}
+html.hq .rt{background:radial-gradient(ellipse at 50% 0,rgba(255,42,61,.07),transparent 60%),rgba(4,3,6,.88);border-color:rgba(255,42,61,.3);box-shadow:inset 0 0 40px rgba(0,0,0,.6)}
+html.hq .rt:focus{box-shadow:0 0 0 1px var(--ac),0 0 22px rgba(255,42,61,.35),inset 0 0 40px rgba(0,0,0,.6)}
+html.hq .rt h2{text-shadow:0 0 4px #fff,0 0 18px rgba(255,42,61,.7)}
+html.hq .rt b{text-shadow:0 0 8px rgba(255,255,255,.35)}
+html.hq .rt .fc-r{text-shadow:0 0 8px rgba(255,42,61,.8)}html.hq .rt .fc-c{text-shadow:0 0 8px rgba(41,224,255,.8)}
+html.hq #dlg{background:radial-gradient(circle at 50% 40%,rgba(255,42,61,.15),rgba(0,0,0,.82) 60%)}
+html.hq .dlg-box{box-shadow:inset 0 0 0 1px #ff2a3d,0 0 40px -6px rgba(255,42,61,.7)}
+html.hq-pc .rt-bar button:not(.on):hover{color:#fff;border-color:rgba(255,42,61,.6);background:rgba(255,42,61,.12);text-shadow:-1px 0 rgba(41,224,255,.8),1px 0 rgba(255,42,61,.9)}
+html.hq-pc .pop .sw:hover{transform:scale(1.15);box-shadow:0 0 12px currentColor}

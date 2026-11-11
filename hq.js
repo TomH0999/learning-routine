@@ -68,7 +68,7 @@ if (HQ && PC) {
   const cur = document.createElement("div"); cur.className = "hq-cursor"; cur.innerHTML = "<i></i>"; document.body.append(cur);
   let cx = innerWidth / 2, cy = innerHeight / 2, tx = cx, ty = cy, raf = 0;
   const move = () => { cx += (tx - cx) * .25; cy += (ty - cy) * .25; cur.style.transform = `translate3d(${cx}px,${cy}px,0)`; raf = Math.abs(tx - cx) + Math.abs(ty - cy) > .3 ? requestAnimationFrame(move) : 0; };
-  document.addEventListener("pointermove", (e) => { tx = e.clientX; ty = e.clientY; cur.classList.toggle("on-link", !!e.target.closest("button,a,.item,.topic,.tile,select,label,input[type=checkbox]")); cur.classList.toggle("on-text", !!e.target.closest("input:not([type=checkbox]),textarea")); if (!raf) raf = requestAnimationFrame(move); }, { passive: true });
+  document.addEventListener("pointermove", (e) => { tx = e.clientX; ty = e.clientY; cur.classList.toggle("on-link", !!e.target.closest("button,a,.item,.topic,.tile,select,label,input[type=checkbox]")); cur.classList.toggle("on-text", !!e.target.closest("input:not([type=checkbox]),textarea,[contenteditable]")); if (!raf) raf = requestAnimationFrame(move); }, { passive: true });
   document.addEventListener("pointerdown", () => cur.classList.add("down")); document.addEventListener("pointerup", () => cur.classList.remove("down"));
   document.addEventListener("mouseleave", () => cur.classList.add("gone")); document.addEventListener("mouseenter", () => cur.classList.remove("gone"));
   // le globe suit légèrement la souris
