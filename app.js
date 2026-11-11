@@ -162,17 +162,22 @@ function observeReveal() { document.querySelectorAll(".reveal:not(.in)").forEach
 (function heroFx() {
   const c = $("#stars"), x = c.getContext("2d", { alpha: true }), hero = $(".hero"), orb = $(".orb"), txt = $(".hero-txt");
   const mobile = matchMedia("(max-width: 700px)").matches, reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const dpr = Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2), N = mobile ? 28 : 55;
+  const HQ = document.documentElement.classList.contains("hq");
+  const dpr = Math.min(devicePixelRatio || 1, HQ ? 2 : mobile ? 1.5 : 2), N = HQ ? (mobile ? 60 : 110) : mobile ? 28 : 55;
   let W, H, P = [], visible = true, running = false, last = 0;
   const size = () => { W = c.width = Math.round(c.offsetWidth * dpr); H = c.height = Math.round(c.offsetHeight * dpr); P = [...Array(N)].map(() => ({ x: Math.random() * W, y: Math.random() * H, v: (.25 + Math.random() * .8) * dpr, r: (.6 + Math.random()) * dpr, c: Math.random() < .15 ? "#29e0ff" : "#ff2a3d", a: .35 + Math.random() * .5 })); };
   let rs; addEventListener("resize", () => { clearTimeout(rs); rs = setTimeout(size, 200); }); size();
   const active = () => visible && !$("#today").hidden && document.visibilityState === "visible";
   function frame(t) {
     if (!active()) { running = false; return; }
-    if (t - last >= (mobile ? 33 : 16)) { // ~30 fps sur mobile
+    if (t - last >= (mobile && !HQ ? 33 : 16)) { // ~30 fps sur mobile
       const k = last ? Math.min(3, (t - last) / 16) : 1; last = t;
       x.clearRect(0, 0, W, H);
       for (const p of P) { p.y -= p.v * k; if (p.y < 0) { p.y = H; p.x = Math.random() * W; } x.globalAlpha = p.a; x.fillStyle = p.c; x.fillRect(p.x, p.y, p.r, p.r * 3); }
+      if (HQ) { // constellation : liens entre particules proches
+        const L = 110 * dpr, L2 = L * L; x.lineWidth = .6 * dpr;
+        for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) { const dx = P[i].x - P[j].x, dy = P[i].y - P[j].y, d = dx * dx + dy * dy; if (d < L2) { x.globalAlpha = (1 - d / L2) * .35; x.strokeStyle = P[i].c; x.beginPath(); x.moveTo(P[i].x, P[i].y); x.lineTo(P[j].x, P[j].y); x.stroke(); } }
+      }
     }
     requestAnimationFrame(frame);
   }
