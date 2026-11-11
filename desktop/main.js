@@ -47,6 +47,13 @@ app.whenReady().then(() => {
   autoUpdater.on("error", () => {});
   ipcMain.on("install-update", () => { quitting = true; autoUpdater.quitAndInstall(); });
   const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  ipcMain.handle("check-update", async () => {
+    try {
+      const r = await autoUpdater.checkForUpdates();
+      const v = r && r.updateInfo && r.updateInfo.version;
+      return v && v !== app.getVersion() && r.isUpdateAvailable !== false ? { state: "available", version: v } : { state: "none", version: app.getVersion() };
+    } catch (e) { return { state: "error", error: String(e.message || e) }; }
+  });
   setTimeout(check, 10000); setInterval(check, 4 * 60 * 60 * 1000);
   setTimeout(remind, 60000); setInterval(remind, 60 * 60 * 1000);
 });
