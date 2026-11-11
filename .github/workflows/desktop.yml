@@ -12,7 +12,7 @@ jobs:
         with: { node-version: 20 }
       - name: Copier l'app web
         shell: bash
-        run: mkdir -p desktop/app && cp index.html app.js skip.js config.js style.css manifest.json icon.png icon.svg icon-512.png apple-touch-icon.png desktop/app/
+        run: mkdir -p desktop/app && cp index.html app.js hq.js hq.css skip.js config.js style.css manifest.json icon.png icon.svg icon-512.png apple-touch-icon.png desktop/app/
       - run: npm install
         working-directory: desktop
       - run: npm run dist
