@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="hq.css">
 <script>try{if(localStorage.getItem("lr_visual")==="hq"&&matchMedia("(hover:hover) and (pointer:fine)").matches)document.documentElement.classList.add("hq")}catch(e){}</script>
 </head><body>
-<header><div class="logo"><img src="icon-512.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.10.0</span></header>
+<header><div class="logo"><img src="icon-512.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.11.0</span></header>
 <nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="topics">Sujets</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
 <main>
 <section id="today">
@@ -76,6 +76,12 @@
   <select id="tTag" aria-label="Catégorie du nouveau sujet"></select>
   <div class="row"><select id="tTagFilter" aria-label="Filtrer par catégorie"></select><select id="tFilter"><option value="todo">En cours</option><option value="done">Maîtrisés</option><option value="all">Tous</option></select></div>
   <div id="tList"></div>
+</section>
+<section id="ach" hidden>
+  <div class="row"><h2 class="sec" style="margin:10px 0"><span>/05</span> Succès</h2><button id="achBack">← Retour</button></div>
+  <div id="achHead"></div>
+  <select id="achFilter"><option value="all">Tous les succès</option><option value="got">Débloqués</option><option value="todo">À débloquer</option></select>
+  <div id="achList"></div>
 </section>
 <section id="settings" hidden>
   <div class="card"><h3>Gestionnaire de devoirs</h3>

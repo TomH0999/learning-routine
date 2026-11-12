@@ -1,7 +1,7 @@
 {
   "name": "learning-routine",
   "productName": "Routine d'apprentissage",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "Routine d'apprentissage (version PC)",
   "main": "main.js",
   "author": "TomH0999",
