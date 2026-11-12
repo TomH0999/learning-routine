@@ -1,4 +1,4 @@
-import { uiAlert, uiConfirm, uiPrompt, initEditor, sanitize, textToHtml } from "./ui.js";
+import { uiAlert, uiConfirm, uiPrompt, initEditor, sanitize, textToHtml, enhanceSelects } from "./ui.js";
 import { skipReason, parisToday, isImportant, addDays } from "./skip.js";
 const C = window.LR_CONFIG, GOAL = C.goalMinutes * 60;
 const $ = (s) => document.querySelector(s);
@@ -39,7 +39,7 @@ function show(v) {
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   $("nav").hidden = v === "note";
   if (window.heroKick) setTimeout(window.heroKick);
-  if (v === "today") renderToday(); if (v === "notes") renderList(); if (v === "topics") renderTopics(); if (v === "settings") renderSettings();
+  if (v === "today") renderToday(); if (v === "notes") renderList(); if (v === "topics") renderTopics(); if (v === "ach") renderAch(); if (v === "settings") renderSettings();
 }
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => show(b.dataset.v)));
 
@@ -152,8 +152,11 @@ function renderStats(hw) {
   const start = addDays(d0, -111); let cells = "";
   for (let i = 0; i < 112; i++) { const d = addDays(start, i), r = S.sec(d) / GOAL, lv = r >= 1 ? 4 : r >= .66 ? 3 : r >= .33 ? 2 : r > 0 ? 1 : 0; cells += `<i class="h${lv}${skipReason(d, hw) ? " sk" : ""}" title="${d}"></i>`; }
   $("#heat").innerHTML = cells; $("#heatLegend").innerHTML = 'Moins <i class="h0"></i><i class="h1"></i><i class="h2"></i><i class="h3"></i><i class="h4"></i> Plus · <i class="h0 sk"></i> jour sauté';
-  const B = [["Première leçon", S.lessons >= 1], ["Série de 3", S.best >= 3], ["Série de 7", S.best >= 7], ["Série de 30", S.best >= 30], ["10 h cumulées", S.mins >= 600], ["50 h cumulées", S.mins >= 3000], ["1 000 lignes", S.lines >= 1000], ["10 000 mots", S.words >= 10000], ["5 matières", S.subjects >= 5], ["1er sujet maîtrisé", S.tDone >= 1], ["10 sujets maîtrisés", S.tDone >= 10], ["100 % sur 7 j", [...Array(7)].every((_, i) => S.done(addDays(d0, -i - 1)) || skipReason(addDays(d0, -i - 1), hw))]];
-  $("#badges").innerHTML = `<h3>Succès — ${B.filter((b) => b[1]).length}/${B.length}</h3><div class="badges">${B.map(([n, ok]) => `<span class="badge${ok ? " on" : ""}">${ok ? "◆" : "◇"} ${n}</span>`).join("")}</div>`;
+  const A = computeAchievements(hw), got = A.filter((x) => x.at).sort((a, b) => b.at.localeCompare(a.at));
+  $("#badges").innerHTML = `<h3>Succès — ${got.length}/${A.length}</h3><div class="ach-bar"><i style="width:${(got.length / A.length) * 100}%"></i></div>
+    <div class="badges">${got.slice(0, 6).map((x) => `<span class="badge on">${x.ic} ${esc(x.name)}</span>`).join("") || '<span class="hint">Aucun succès pour l\'instant : lance ta première session !</span>'}</div>
+    <button class="big" id="openAch" style="margin-top:12px">Voir tous les succès</button>`;
+  $("#openAch").onclick = () => show("ach");
   observeReveal();
 }
 function countUp(el) {
@@ -200,6 +203,84 @@ function observeReveal() { document.querySelectorAll(".reveal:not(.in)").forEach
   }, { passive: true });
 })();
 
+// ---------- Succès ----------
+const ACH = [
+  // [id, groupe, icône, nom, description, métrique, seuil]
+  ["l1", "Leçons", "▣", "Premier pas", "Écrire ta première leçon", "lessons", 1],
+  ["l10", "Leçons", "▣", "Carnet entamé", "10 leçons écrites", "lessons", 10],
+  ["l25", "Leçons", "▣", "Bibliothèque", "25 leçons écrites", "lessons", 25],
+  ["l50", "Leçons", "▣", "Archiviste", "50 leçons écrites", "lessons", 50],
+  ["l100", "Leçons", "▣", "Encyclopédie", "100 leçons écrites", "lessons", 100],
+  ["l250", "Leçons", "▣", "Mémoire vive", "250 leçons écrites", "lessons", 250],
+  ["h1", "Temps", "◷", "Première heure", "1 h d'apprentissage cumulée", "mins", 60],
+  ["h10", "Temps", "◷", "Échauffement", "10 h cumulées", "mins", 600],
+  ["h25", "Temps", "◷", "Régime de croisière", "25 h cumulées", "mins", 1500],
+  ["h50", "Temps", "◷", "Machine", "50 h cumulées", "mins", 3000],
+  ["h100", "Temps", "◷", "Centurion", "100 h cumulées", "mins", 6000],
+  ["h250", "Temps", "◷", "Maître du temps", "250 h cumulées", "mins", 15000],
+  ["m2", "Temps", "⚡", "Marathon", "2 h dans une même journée", "maxDay", 120],
+  ["m3", "Temps", "⚡", "Ultra-marathon", "3 h dans une même journée", "maxDay", 180],
+  ["s3", "Séries", "▲", "Lancé", "Série de 3 jours", "best", 3],
+  ["s7", "Séries", "▲", "Semaine parfaite", "Série de 7 jours", "best", 7],
+  ["s14", "Séries", "▲", "Quinzaine de fer", "Série de 14 jours", "best", 14],
+  ["s30", "Séries", "▲", "Mois sans faille", "Série de 30 jours", "best", 30],
+  ["s60", "Séries", "▲", "Inarrêtable", "Série de 60 jours", "best", 60],
+  ["s100", "Séries", "▲", "Légende", "Série de 100 jours", "best", 100],
+  ["d10", "Régularité", "◎", "Habitude", "10 jours réussis", "days", 10],
+  ["d50", "Régularité", "◎", "Discipline", "50 jours réussis", "days", 50],
+  ["d100", "Régularité", "◎", "Rituel", "100 jours réussis", "days", 100],
+  ["d365", "Régularité", "◎", "Une année d'apprentissage", "365 jours réussis", "days", 365],
+  ["w1k", "Écriture", "✎", "Plume", "1 000 mots écrits", "words", 1000],
+  ["w10k", "Écriture", "✎", "Auteur", "10 000 mots écrits", "words", 10000],
+  ["w50k", "Écriture", "✎", "Romancier", "50 000 mots écrits", "words", 50000],
+  ["li100", "Écriture", "≡", "Cent lignes", "100 lignes écrites", "lines", 100],
+  ["li1k", "Écriture", "≡", "Mille lignes", "1 000 lignes écrites", "lines", 1000],
+  ["li5k", "Écriture", "≡", "Rouleau infini", "5 000 lignes écrites", "lines", 5000],
+  ["fmt", "Écriture", "✦", "Typographe", "Utiliser la mise en forme dans une note", "rich", 1],
+  ["t1", "Sujets", "◇", "Sujet maîtrisé", "Cocher ton premier sujet", "tDone", 1],
+  ["t5", "Sujets", "◇", "Spécialiste", "5 sujets maîtrisés", "tDone", 5],
+  ["t10", "Sujets", "◇", "Expert", "10 sujets maîtrisés", "tDone", 10],
+  ["t25", "Sujets", "◇", "Érudit", "25 sujets maîtrisés", "tDone", 25],
+  ["sb3", "Sujets", "⌘", "Curieux", "Étudier 3 matières différentes", "subjects", 3],
+  ["sb10", "Sujets", "⌘", "Touche-à-tout", "Étudier 10 matières différentes", "subjects", 10],
+  ["c3", "Sujets", "⬡", "Multi-cursus", "Utiliser 3 catégories (BUT, prépa, bourse…)", "cats", 3],
+  ["n3", "Sujets", "⬡", "Triple session", "3 leçons le même jour", "maxNotesDay", 3]
+];
+function computeAchievements(hw) {
+  const notes = liveNotes().filter((n) => (n.content || "").trim() || (n.title || "").trim()), d0 = today();
+  const byDate = {}; for (const n of notes) (byDate[n.date] ??= []).push(n);
+  const topicsDone = liveTopics().filter((t) => t.doneAt).map((t) => new Date(t.doneAt).toISOString().slice(0, 10)).sort();
+  const days = [...new Set([...Object.keys(load(K.prog, {})), ...Object.keys(load(K.remote, {})), ...Object.keys(byDate), ...topicsDone])].filter((d) => d && d <= d0).sort();
+  const m = { lessons: 0, mins: 0, maxDay: 0, best: 0, days: 0, words: 0, lines: 0, rich: 0, tDone: 0, subjects: 0, cats: 0, maxNotesDay: 0 };
+  const subj = new Set(), cats = new Set(), at = {}; let run = 0;
+  const check = (d) => { for (const [id, , , , , k, v] of ACH) if (!at[id] && m[k] >= v) at[id] = d; };
+  if (days.length) for (let d = days[0]; d <= d0; d = addDays(d, 1)) {
+    const sec = progress(d), ns = byDate[d] || [];
+    m.mins += sec / 60; m.maxDay = Math.max(m.maxDay, sec / 60);
+    if (sec >= GOAL) { m.days++; run++; m.best = Math.max(m.best, run); } else if (!skipReason(d, hw) && d !== d0) run = 0;
+    m.lessons += ns.length; m.maxNotesDay = Math.max(m.maxNotesDay, ns.length);
+    for (const n of ns) {
+      m.words += ((n.content || "").match(/\S+/g) || []).length; m.lines += (n.content || "").split("\n").filter((l) => l.trim()).length;
+      if (/<(b|strong|i|em|u|s|h2|h3|ul|ol|blockquote|pre|mark)\b|class="(fc|hl)-/.test(n.html || "")) m.rich = 1;
+      if (n.subject) subj.add(norm(n.subject)); if (n.tag) cats.add(n.tag);
+    }
+    m.subjects = subj.size; m.cats = cats.size; m.tDone = topicsDone.filter((x) => x <= d).length;
+    check(d);
+  }
+  return ACH.map(([id, group, ic, name, desc, k, v]) => ({ id, group, ic, name, desc, at: at[id] || null, cur: Math.min(v, Math.floor(m[k])), goal: v }));
+}
+function renderAch() {
+  const A = computeAchievements(load(K.hw, { items: [] }).items), f = $("#achFilter").value, got = A.filter((x) => x.at).length;
+  $("#achHead").innerHTML = `<div class="tile lvl in"><div class="lvl-n">${got}<span class="hint" style="font-size:1rem"> / ${A.length} succès</span></div><div class="lvl-bar"><i style="width:${(got / A.length) * 100}%"></i></div><p class="hint">${Math.round((got / A.length) * 100)} % de complétion${got ? ` · dernier : ${esc(A.filter((x) => x.at).sort((a, b) => b.at.localeCompare(a.at))[0].name)}` : ""}</p></div>`;
+  const list = A.filter((x) => f === "all" || (f === "got" ? x.at : !x.at));
+  const groups = [...new Set(list.map((x) => x.group))];
+  const fmtD = (d) => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  $("#achList").innerHTML = groups.map((g) => `<h2 class="sec"><span>//</span> ${esc(g)}</h2><div class="ach-grid">${list.filter((x) => x.group === g).map((x) => `
+    <div class="card ach${x.at ? " got" : ""}"><div class="ach-ic">${x.ic}</div><div class="ach-b"><b>${esc(x.name)}</b><div class="hint">${esc(x.desc)}</div>
+    ${x.at ? `<div class="ach-date">◆ Débloqué le ${fmtD(x.at)}</div>` : `<div class="ach-bar"><i style="width:${(x.cur / x.goal) * 100}%"></i></div><div class="hint">${x.cur.toLocaleString("fr-FR")} / ${x.goal.toLocaleString("fr-FR")}</div>`}</div></div>`).join("")}</div>`).join("") || '<p class="hint">Rien ici pour l\'instant.</p>';
+}
+$("#achFilter").onchange = renderAch; $("#achBack").onclick = () => show("today");
+
 // ---------- Sujets à étudier ----------
 function saveTopics(list) { save(K.topics, list); queueSync(); renderTopics(); }
 function topicStats(t) { const ns = notesOf(t); return { sessions: ns.length, days: new Set(ns.map((n) => n.date)).size, secs: ns.reduce((a, n) => a + (n.secs || 0), 0), lines: ns.reduce((a, n) => a + (n.content || "").split("\n").filter((l) => l.trim()).length, 0), last: ns.map((n) => n.date).sort().pop() }; }
@@ -215,12 +296,20 @@ function renderTopics() {
     <label class="chk"><input type="checkbox" class="tDone"${t.doneAt ? " checked" : ""}><span></span></label>
     <div class="tbody">${t.tag ? `<span class="chip">${esc(t.tag)}</span> ` : ""}<b>${esc(t.name)}</b>
       <div class="hint">${S.sessions} session${S.sessions > 1 ? "s" : ""} · ${hm(S.secs)} · ${S.lines} lignes${S.last ? " · dernière : " + S.last : ""}${t.doneAt ? " · maîtrisé le " + new Date(t.doneAt).toLocaleDateString("fr-FR") : ""}</div>
-      <div class="tact"><button class="tGo">Étudier</button> <button class="tNotes"${S.sessions ? "" : " disabled"}>Réviser les notes (${S.sessions})</button> <button class="tDel danger">✕</button></div></div></div>`; }).join("") : '<p class="hint">Aucun sujet. Ajoute ce que tu veux apprendre ci-dessus.</p>';
+      <div class="tact"><button class="tGo">Étudier</button> <button class="tNotes"${S.sessions ? "" : " disabled"}>Réviser les notes (${S.sessions})</button> <button class="tEdit" title="Renommer">✎</button> <button class="tDel danger" title="Supprimer">✕</button></div></div></div>`; }).join("") : '<p class="hint">Aucun sujet. Ajoute ce que tu veux apprendre ci-dessus.</p>';
   document.querySelectorAll(".topic").forEach((el) => {
     const id = el.dataset.id, t = all.find((x) => x.id === id);
     el.querySelector(".tDone").onchange = (e) => saveTopics(load(K.topics, []).map((x) => (x.id === id ? { ...x, doneAt: e.target.checked ? Date.now() : null, updatedAt: Date.now() } : x)));
     el.querySelector(".tGo").onclick = () => startSession(t.name);
     el.querySelector(".tNotes").onclick = () => { show("notes"); $("#q").value = ""; $("#qDate").value = ""; $("#sort").value = "date-asc"; $("#qSubject").innerHTML = `<option>${esc(t.name)}</option>`; $("#qSubject").value = t.name; fillTagSelect($("#qTag"), "*", { any: true, add: false }); renderList(); };
+    el.querySelector(".tEdit").onclick = async () => {
+      const name = ((await uiPrompt("Nouveau nom du sujet (ses leçons suivent automatiquement)", { title: "Renommer le sujet", value: t.name, ok: "Renommer" })) || "").trim();
+      if (!name || name === t.name) return;
+      if (liveTopics().some((x) => x.id !== id && norm(x.name) === norm(name))) return uiAlert("Un sujet porte déjà ce nom.");
+      const now = Date.now();
+      save(K.notes, load(K.notes, []).map((n) => (!n.deleted && norm(n.subject) === norm(t.name) ? { ...n, subject: name, updatedAt: now } : n)));
+      saveTopics(load(K.topics, []).map((x) => (x.id === id ? { ...x, name, updatedAt: now } : x)));
+    };
     el.querySelector(".tDel").onclick = async () => (await uiConfirm(`Supprimer le sujet « ${t.name} » ? (les notes sont conservées)`, { ok: "Supprimer", danger: true })) && saveTopics(load(K.topics, []).map((x) => (x.id === id ? { id, deleted: true, updatedAt: Date.now() } : x)));
   });
 }
@@ -373,4 +462,5 @@ syncAll();
 setInterval(() => document.visibilityState === "visible" && syncAll(), 30000);
 document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && syncAll());
 window.addEventListener("online", syncAll);
+enhanceSelects();
 show("today");

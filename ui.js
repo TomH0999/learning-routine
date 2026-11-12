@@ -116,3 +116,53 @@ export function initEditor(ed, bar, onChange) {
     text: () => ed.innerText.replace(/ /g, " ").replace(/\n{3,}/g, "\n\n").trim()
   };
 }
+
+// ---------- Listes déroulantes stylisées (PC) ----------
+// Les menus natifs <select> s'ouvrent dans une fenêtre système : le curseur stylisé ne peut pas
+// les suivre et restait figé. On les remplace par un menu dessiné dans la page (le <select>
+// d'origine reste la source de vérité : value, change, input fonctionnent comme avant).
+export function enhanceSelects(root = document) {
+  if (!matchMedia("(hover:hover) and (pointer:fine)").matches) return;
+  const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  let openList = null;
+  const close = () => { if (!openList) return; openList.list.hidden = true; openList.btn.setAttribute("aria-expanded", "false"); openList.wrap.classList.remove("open"); openList = null; };
+  document.addEventListener("pointerdown", (e) => { if (openList && !openList.wrap.contains(e.target) && !openList.list.contains(e.target)) close(); }, true);
+  addEventListener("resize", close); addEventListener("blur", close);
+  document.addEventListener("scroll", (e) => { if (openList && !openList.list.contains(e.target)) close(); }, true);
+  root.querySelectorAll("select:not([data-csel])").forEach((sel) => {
+    sel.dataset.csel = 1;
+    const wrap = document.createElement("div"); wrap.className = "csel"; if (sel.id) wrap.dataset.for = sel.id;
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "csel-btn"; btn.setAttribute("aria-haspopup", "listbox"); btn.setAttribute("aria-expanded", "false");
+    if (sel.getAttribute("aria-label")) btn.setAttribute("aria-label", sel.getAttribute("aria-label"));
+    const list = document.createElement("div"); list.className = "csel-list"; list.setAttribute("role", "listbox"); list.hidden = true;
+    sel.before(wrap); wrap.append(sel, btn); document.body.append(list);
+    const label = () => { const o = sel.options[sel.selectedIndex]; btn.innerHTML = `<span>${o ? o.textContent.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])) : "—"}</span><i>▾</i>`; };
+    Object.defineProperty(sel, "value", { get() { return desc.get.call(this); }, set(v) { desc.set.call(this, v); label(); }, configurable: true });
+    new MutationObserver(label).observe(sel, { childList: true, subtree: true, characterData: true });
+    sel.addEventListener("change", label);
+    let idx = -1;
+    const render = () => {
+      list.innerHTML = [...sel.options].map((o, i) => `<div role="option" class="csel-opt${i === sel.selectedIndex ? " sel" : ""}${o.value === "+" ? " add" : ""}" data-i="${i}" aria-selected="${i === sel.selectedIndex}">${o.textContent.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</div>`).join("");
+      idx = sel.selectedIndex; hl();
+    };
+    const hl = () => list.querySelectorAll(".csel-opt").forEach((el, i) => { el.classList.toggle("hl", i === idx); if (i === idx) el.scrollIntoView({ block: "nearest" }); });
+    const place = () => {
+      const r = btn.getBoundingClientRect(), h = Math.min(320, list.scrollHeight), below = innerHeight - r.bottom - 8;
+      list.style.minWidth = r.width + "px"; list.style.left = Math.max(8, Math.min(r.left, innerWidth - Math.max(r.width, list.offsetWidth) - 8)) + "px";
+      list.style.top = (below >= Math.min(h, 200) ? r.bottom + 4 : Math.max(8, r.top - h - 4)) + "px";
+    };
+    const open = () => { if (openList) close(); render(); list.hidden = false; place(); btn.setAttribute("aria-expanded", "true"); wrap.classList.add("open"); openList = { wrap, btn, list }; };
+    const pick = (i) => { if (i < 0) return; close(); btn.focus({ preventScroll: true }); if (i !== sel.selectedIndex) { sel.selectedIndex = i; label(); sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true })); } };
+    btn.addEventListener("click", () => (list.hidden ? open() : close()));
+    list.addEventListener("pointerdown", (e) => e.preventDefault());
+    list.addEventListener("click", (e) => { const o = e.target.closest(".csel-opt"); if (o) pick(+o.dataset.i); });
+    list.addEventListener("pointermove", (e) => { const o = e.target.closest(".csel-opt"); if (o && +o.dataset.i !== idx) { idx = +o.dataset.i; list.querySelectorAll(".csel-opt").forEach((el, i) => el.classList.toggle("hl", i === idx)); } });
+    btn.addEventListener("keydown", (e) => {
+      const n = sel.options.length;
+      if (["ArrowDown", "ArrowUp"].includes(e.key)) { e.preventDefault(); if (list.hidden) open(); else { idx = (idx + (e.key === "ArrowDown" ? 1 : -1) + n) % n; hl(); } }
+      else if (e.key === "Enter" || e.key === " ") { if (!list.hidden) { e.preventDefault(); pick(idx); } }
+      else if (e.key === "Escape" || e.key === "Tab") close();
+    });
+    label();
+  });
+}
