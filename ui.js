@@ -31,7 +31,20 @@ export const uiConfirm = (msg, opts = {}) => open({ msg, title: opts.title || "C
 export const uiPrompt = (msg, opts = {}) => open({ msg, title: opts.title || "", input: { value: opts.value, placeholder: opts.placeholder }, ok: opts.ok || "Valider" });
 
 // ---------- Texte enrichi ----------
-const COLORS = { r: "#ff2a3d", c: "#29e0ff", w: "#ffffff", y: "#ffd23f", g: "#3dff9a" };
+// Palette : les anciennes clés (r, c, w, y, g) restent identiques pour ne rien changer aux notes existantes.
+export const COLORS = {
+  r: ["#ff2a3d", "Rouge néon"], o: ["#ff8a1f", "Orange"], y: ["#ffd23f", "Jaune"], l: ["#b6ff3b", "Citron vert"],
+  g: ["#3dff9a", "Vert"], t: ["#00e0b0", "Turquoise"], c: ["#29e0ff", "Cyan"], b: ["#3d8bff", "Bleu"],
+  v: ["#9b6bff", "Violet"], m: ["#ff3df0", "Magenta"], p: ["#ff7ab6", "Rose"], br: ["#c98b5a", "Cuivre"],
+  w: ["#ffffff", "Blanc"], s: ["#a3a3b2", "Gris"], d: ["#5c5866", "Gris foncé"]
+};
+(() => { // styles des couleurs générés depuis la palette
+  const st = document.createElement("style"); st.id = "rt-colors";
+  st.textContent = Object.entries(COLORS).map(([k, [hex]]) => { const n = parseInt(hex.slice(1), 16), rgb = `${n >> 16},${(n >> 8) & 255},${n & 255}`;
+    const al = { r: .35, c: .3, y: .35, g: .3, w: .25 }[k] ?? .32; // anciennes valeurs conservées
+    return `.fc-${k}{color:${hex}!important}.hl-${k}{background:rgba(${rgb},${al})}.sw.k-${k}{background:${hex}}`; }).join("");
+  document.head.append(st);
+})();
 const ALLOWED = new Set(["B", "STRONG", "I", "EM", "U", "S", "STRIKE", "DEL", "H2", "H3", "UL", "OL", "LI", "BLOCKQUOTE", "PRE", "CODE", "MARK", "BR", "DIV", "P", "SPAN", "FONT", "HR"]);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const textToHtml = (t) => esc(t).replace(/\n/g, "<br>");
@@ -39,31 +52,52 @@ export const textToHtml = (t) => esc(t).replace(/\n/g, "<br>");
 const norm = (col) => { const d = document.createElement("div"); d.style.color = col; document.body.append(d); const v = getComputedStyle(d).color; d.remove(); return v; };
 let palette = null;
 const colorClass = (col) => {
-  if (!col) return null; palette ??= Object.fromEntries(Object.entries(COLORS).map(([k, v]) => [norm(v), k]));
+  if (!col || col === "transparent") return null; palette ??= Object.fromEntries(Object.entries(COLORS).map(([k, [v]]) => [norm(v), k]));
   return palette[norm(col)] || null;
 };
-/** Ne garde que les balises et couleurs autorisées (les données synchronisées ne peuvent pas injecter de script). */
+const CLASS_OK = (c) => { const m = /^(fc|hl)-([a-z]{1,2})$/.exec(c); return !!(m && COLORS[m[2]]) || c === "chk-list"; };
+/** Ne garde que les balises, couleurs et cases autorisées (les données synchronisées ne peuvent pas injecter de script).
+ *  Les styles posés en CSS par le navigateur (gras/italique/souligné/barré, fréquents sur iPhone) sont convertis
+ *  en balises, ce qui permet de cumuler les styles sans en perdre à l'enregistrement. */
 export function sanitize(html) {
   const tpl = document.createElement("template"); tpl.innerHTML = html;
   const walk = (node) => {
     for (const ch of [...node.childNodes]) {
       if (ch.nodeType === 3) continue;
-      if (ch.nodeType !== 1 || !ALLOWED.has(ch.tagName)) { if (ch.nodeType === 1 && !/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED)$/.test(ch.tagName)) { walk(ch); ch.replaceWith(...ch.childNodes); } else ch.remove(); continue; }
+      if (ch.nodeType !== 1 || !ALLOWED.has(ch.tagName)) { if (ch.nodeType === 1 && !/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|TEMPLATE)$/.test(ch.tagName)) { walk(ch); ch.replaceWith(...ch.childNodes); } else ch.remove(); continue; }
       walk(ch);
-      const fg = ch.tagName === "FONT" ? ch.getAttribute("color") : ch.style?.color;
-      const bg = ch.style?.backgroundColor;
-      let cls = [...ch.classList].filter((c) => /^(fc|hl)-[rcwyg]$/.test(c));
-      const f = colorClass(fg), b = colorClass(bg);
-      if (f) cls.push("fc-" + f); if (b) cls.push("hl-" + b);
+      const st = ch.style || {}, fw = st.fontWeight, deco = `${st.textDecorationLine || ""} ${st.textDecoration || ""}`;
+      const wrap = [];
+      if ((fw === "bold" || fw === "bolder" || +fw >= 600) && !/^(B|STRONG|H2|H3)$/.test(ch.tagName)) wrap.push("b");
+      if (st.fontStyle === "italic" && !/^(I|EM)$/.test(ch.tagName)) wrap.push("i");
+      if (/underline/.test(deco) && ch.tagName !== "U") wrap.push("u");
+      if (/line-through/.test(deco) && !/^(S|STRIKE|DEL)$/.test(ch.tagName)) wrap.push("s");
+      const cls = [...ch.classList].filter(CLASS_OK).filter((c) => c !== "chk-list" || ch.tagName === "UL");
+      const f = colorClass(ch.tagName === "FONT" ? ch.getAttribute("color") : st.color), bgc = colorClass(st.backgroundColor);
+      if (f) cls.push("fc-" + f); if (bgc) cls.push("hl-" + bgc);
+      const chk = ch.tagName === "LI" ? (ch.getAttribute("data-c") === "1" ? "1" : ch.getAttribute("data-c") === "0" ? "0" : null) : null;
       for (const a of [...ch.attributes]) ch.removeAttribute(a.name);
-      if (ch.tagName === "FONT" || (ch.tagName === "SPAN" && !cls.length)) {
-        if (cls.length) { const s = document.createElement("span"); s.className = [...new Set(cls)].join(" "); s.append(...ch.childNodes); ch.replaceWith(s); }
-        else ch.replaceWith(...ch.childNodes);
-      } else if (cls.length) ch.className = [...new Set(cls)].join(" ");
+      if (chk !== null) ch.setAttribute("data-c", chk);
+      const uniq = [...new Set(cls)];
+      // élément cible qui reçoit les styles cumulés
+      let target = ch;
+      if (ch.tagName === "FONT" || (ch.tagName === "SPAN" && !uniq.length)) {
+        if (uniq.length) { const s = document.createElement("span"); s.className = uniq.join(" "); s.append(...ch.childNodes); ch.replaceWith(s); target = s; }
+        else if (wrap.length) { const frag = document.createElement(wrap.shift()); frag.append(...ch.childNodes); ch.replaceWith(frag); target = frag; }
+        else { ch.replaceWith(...ch.childNodes); continue; }
+      } else if (uniq.length) ch.className = uniq.join(" ");
+      if (wrap.length) { let inner = null, outer = null; for (const t of wrap) { const e = document.createElement(t); if (inner) inner.append(e); else outer = e; inner = e; } inner.append(...target.childNodes); target.append(outer); }
     }
   };
   walk(tpl.content);
   return tpl.innerHTML;
+}
+
+/** Cases à cocher : bascule une case (éditeur ou lecture). Renvoie true si un clic a touché une case. */
+export function toggleCheck(e, root) {
+  const li = e.target.closest && e.target.closest("ul.chk-list > li"); if (!li || !root.contains(li)) return false;
+  const r = li.getBoundingClientRect(); if (e.clientX - r.left > 30) return false;
+  li.setAttribute("data-c", li.getAttribute("data-c") === "1" ? "0" : "1"); return true;
 }
 
 export function initEditor(ed, bar, onChange) {
@@ -71,15 +105,26 @@ export function initEditor(ed, bar, onChange) {
   const block = (tag) => { const cur = (document.queryCommandValue("formatBlock") || "").toLowerCase().replace(/[<>]/g, ""); exec("formatBlock", cur === tag ? "div" : tag); };
   const color = (k, hl) => {
     document.execCommand("styleWithCSS", false, true);
-    exec(hl ? "hiliteColor" : "foreColor", k ? COLORS[k] : hl ? "transparent" : "#f1f1f4");
+    exec(hl ? "hiliteColor" : "foreColor", k ? COLORS[k][0] : hl ? "transparent" : "#f1f1f4");
     document.execCommand("styleWithCSS", false, false);
   };
+  const curLi = () => { let n = document.getSelection()?.anchorNode; while (n && n !== ed) { if (n.nodeType === 1 && n.tagName === "LI") return n; n = n.parentNode; } return null; };
+  // palettes générées depuis COLORS
+  for (const [attr, p] of [["fc", bar.querySelector('.pop[data-p="fc"]')], ["hl", bar.querySelector('.pop[data-p="hl"]')]])
+    p.innerHTML = Object.entries(COLORS).map(([k, [, name]]) => `<button type="button" data-${attr}="${k}" class="sw k-${k}" title="${name}" aria-label="${name}"></button>`).join("") + `<button type="button" data-${attr}="" class="sw x" title="${attr === "fc" ? "Couleur par défaut" : "Sans surlignage"}">✕</button>`;
   const ACTIONS = {
     b: () => exec("bold"), i: () => exec("italic"), u: () => exec("underline"), s: () => exec("strikeThrough"),
     h2: () => block("h2"), h3: () => block("h3"), quote: () => block("blockquote"), code: () => block("pre"),
     ul: () => exec("insertUnorderedList"), ol: () => exec("insertOrderedList"), hr: () => exec("insertHorizontalRule"),
     clear: () => { exec("removeFormat"); const cur = (document.queryCommandValue("formatBlock") || "").toLowerCase(); if (/h2|h3|blockquote|pre/.test(cur)) exec("formatBlock", "div"); },
-    undo: () => exec("undo"), redo: () => exec("redo")
+    undo: () => exec("undo"), redo: () => exec("redo"),
+    chk: () => {
+      const li = curLi(), ul = li && li.parentElement;
+      if (ul && ul.tagName === "UL" && ul.classList.contains("chk-list")) { exec("insertUnorderedList"); return; } // retire la liste
+      if (!(ul && ul.tagName === "UL")) { ed.focus({ preventScroll: true }); document.execCommand("insertUnorderedList"); }
+      const u2 = curLi()?.parentElement; if (u2 && u2.tagName === "UL") { u2.classList.add("chk-list"); u2.querySelectorAll(":scope>li").forEach((x) => x.hasAttribute("data-c") || x.setAttribute("data-c", "0")); }
+      onChange(); refresh();
+    }
   };
   bar.addEventListener("pointerdown", (e) => { if (e.target.closest("button")) e.preventDefault(); }); // garde la sélection
   bar.addEventListener("click", (e) => {
@@ -101,12 +146,15 @@ export function initEditor(ed, bar, onChange) {
   // collage en texte brut (évite les styles parasites)
   ed.addEventListener("paste", (e) => { e.preventDefault(); const t = e.clipboardData.getData("text/plain"); document.execCommand("insertText", false, t); });
   ed.addEventListener("input", onChange);
+  ed.addEventListener("pointerdown", (e) => { if (toggleCheck(e, ed)) { e.preventDefault(); onChange(); } });
+  ed.addEventListener("keydown", (e) => { if (e.key === "Enter") setTimeout(() => { const li = curLi(); if (li && li.parentElement?.classList.contains("chk-list") && !li.textContent.trim()) li.setAttribute("data-c", "0"); }); });
   // état actif des boutons
   const refresh = () => {
     if (!ed.contains(document.getSelection()?.anchorNode)) return;
     const st = { b: "bold", i: "italic", u: "underline", s: "strikeThrough", ul: "insertUnorderedList", ol: "insertOrderedList" };
     const blk = (document.queryCommandValue("formatBlock") || "").toLowerCase().replace(/[<>]/g, "");
-    bar.querySelectorAll("button[data-a]").forEach((b) => { const a = b.dataset.a; b.classList.toggle("on", st[a] ? document.queryCommandState(st[a]) : a === blk || (a === "quote" && blk === "blockquote") || (a === "code" && blk === "pre")); });
+    const inChk = !!curLi()?.parentElement?.classList.contains("chk-list");
+    bar.querySelectorAll("button[data-a]").forEach((b) => { const a = b.dataset.a; b.classList.toggle("on", a === "chk" ? inChk : a === "ul" && inChk ? false : st[a] ? document.queryCommandState(st[a]) : a === blk || (a === "quote" && blk === "blockquote") || (a === "code" && blk === "pre")); });
   };
   document.addEventListener("selectionchange", refresh);
   document.execCommand("defaultParagraphSeparator", false, "div");

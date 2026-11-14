@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="hq.css">
 <script>try{if(localStorage.getItem("lr_visual")==="hq"&&matchMedia("(hover:hover) and (pointer:fine)").matches)document.documentElement.classList.add("hq")}catch(e){}</script>
 </head><body>
-<header><div class="logo"><img src="icon-512.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.11.0</span></header>
+<header><div class="logo"><img src="icon-512.png" alt=""><span><b>ROUTINE</b>_</span></div><span id="syncState" class="hint"></span><span id="ver">v1.12.0</span></header>
 <nav><button data-v="today" class="on">Aujourd'hui</button><button data-v="topics">Sujets</button><button data-v="notes">Leçons</button><button data-v="settings">Réglages</button></nav>
 <main>
 <section id="today">
@@ -52,11 +52,11 @@
   <div class="rt-bar" id="rtBar" role="toolbar" aria-label="Mise en forme">
     <button data-a="b" title="Gras (Ctrl+B)"><b>B</b></button><button data-a="i" title="Italique (Ctrl+I)"><i>I</i></button><button data-a="u" title="Souligné (Ctrl+U)"><u>U</u></button><button data-a="s" title="Barré (Ctrl+Maj+X)"><s>S</s></button>
     <span class="sep"></span><button data-a="h2" title="Titre (Ctrl+Alt+2)">H1</button><button data-a="h3" title="Sous-titre (Ctrl+Alt+3)">H2</button>
-    <span class="sep"></span><button data-a="ul" title="Liste à puces">•≡</button><button data-a="ol" title="Liste numérotée">1≡</button><button data-a="quote" title="Citation / encadré">❝</button><button data-a="code" title="Code">&lt;/&gt;</button><button data-a="hr" title="Séparateur">―</button>
+    <span class="sep"></span><button data-a="ul" title="Liste à puces">•≡</button><button data-a="ol" title="Liste numérotée">1≡</button><button data-a="chk" title="Cases à cocher">☑</button><button data-a="quote" title="Citation / encadré">❝</button><button data-a="code" title="Code">&lt;/&gt;</button><button data-a="hr" title="Séparateur">―</button>
     <span class="sep"></span><button data-pop="fc" title="Couleur du texte"><span class="sw-a">A</span></button><button data-pop="hl" title="Surligner"><span class="sw-h">▮</span></button>
     <span class="sep"></span><button data-a="clear" title="Effacer la mise en forme">⌫</button><button data-a="undo" title="Annuler">↶</button><button data-a="redo" title="Rétablir">↷</button>
-    <div class="pop" data-p="fc" hidden><button data-fc="r" class="sw r"></button><button data-fc="c" class="sw c"></button><button data-fc="y" class="sw y"></button><button data-fc="g" class="sw g"></button><button data-fc="w" class="sw w"></button><button data-fc="" class="sw x" title="Couleur par défaut">✕</button></div>
-    <div class="pop" data-p="hl" hidden><button data-hl="r" class="sw r"></button><button data-hl="c" class="sw c"></button><button data-hl="y" class="sw y"></button><button data-hl="g" class="sw g"></button><button data-hl="" class="sw x" title="Sans surlignage">✕</button></div>
+    <div class="pop" data-p="fc" hidden></div>
+    <div class="pop" data-p="hl" hidden></div>
   </div>
   <div id="nContent" class="rt" contenteditable="true" spellcheck="true" data-ph="Tes notes… (sélectionne du texte puis utilise la barre au-dessus)"></div><p class="hint" id="saved"></p>
 </section>

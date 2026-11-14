@@ -1,9 +1,9 @@
-# learning-routine — v1.11.0
+# learning-routine — v1.12.0
 Mon outil d'apprentissage quotidien (PWA pour iPhone, hébergée sur GitHub Pages).
 
 ## Fonctions
 - **Note du cours du jour** : éditeur de notes + chrono de 1h qui ne s'écoule que lorsque ce mode est ouvert et l'app au premier plan.
-- **Notes enrichies** : gras, italique, souligné, barré, titres, listes, citation, code, séparateur, couleurs et surlignage (barre d’outils tactile sur iPhone, raccourcis Ctrl+B/I/U sur PC).
+- **Notes enrichies** : styles cumulables (gras + italique + souligné…), titres, listes, cases à cocher, citation, code, séparateur, 15 couleurs de texte et de surlignage (barre d’outils tactile sur iPhone, raccourcis Ctrl+B/I/U sur PC).
 - **Succès** : 39 succès (leçons, temps, séries, régularité, écriture, sujets) avec progression et date de déblocage.
 - **Affichage** : Réglages → « Performances » (léger) ou « Qualité visuelle » (PC uniquement : néon, HUD, radar, constellation, anneau de chrono, curseur réticule, effets au survol). Mise en page adaptée aux fenêtres moitié/tiers d’écran.
 - **Catégories** : BUT1, BUT2, BUT3, Maths prépa, Bourse + catégories personnalisées, sur les leçons et les sujets, filtrables dans Leçons et Sujets.
