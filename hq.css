@@ -151,3 +151,5 @@ html.hq-pc .csel-btn:hover{border-color:rgba(255,42,61,.7);box-shadow:0 0 12px r
 html.hq-pc .csel-opt.hl{text-shadow:-1px 0 rgba(41,224,255,.7),1px 0 rgba(255,42,61,.8)}
 html.hq .ach.got{box-shadow:inset 0 0 0 1px rgba(255,42,61,.55),0 0 26px -8px rgba(255,42,61,.7)}
 html.hq-pc .ach.got:hover .ach-ic{transform:rotate(-8deg) scale(1.08);transition:transform .25s}
+html.hq .rt ul.chk-list>li::before{box-shadow:0 0 10px rgba(255,42,61,.55),inset 0 0 6px rgba(255,42,61,.3)}
+html.hq-pc .rt ul.chk-list>li:hover::before{box-shadow:0 0 16px rgba(255,42,61,.85)}

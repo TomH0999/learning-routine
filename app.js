@@ -1,4 +1,4 @@
-import { uiAlert, uiConfirm, uiPrompt, initEditor, sanitize, textToHtml, enhanceSelects } from "./ui.js";
+import { uiAlert, uiConfirm, uiPrompt, initEditor, sanitize, textToHtml, enhanceSelects, toggleCheck } from "./ui.js";
 import { skipReason, parisToday, isImportant, addDays } from "./skip.js";
 const C = window.LR_CONFIG, GOAL = C.goalMinutes * 60;
 const $ = (s) => document.querySelector(s);
@@ -340,6 +340,12 @@ function openModal(id) {
   const n = load(K.notes, []).find((x) => x.id === id);
   $("#mTitle").textContent = n.title || "(sans titre)"; $("#mMeta").textContent = `${n.date} · ${n.subject || "—"}`; $("#mBody").innerHTML = n.html ? sanitize(n.html) : textToHtml(n.content);
   $("#mEdit").onclick = () => openEditor(id);
+  // cocher/décocher directement en lecture
+  $("#mBody").onpointerdown = (e) => {
+    if (!toggleCheck(e, $("#mBody"))) return; e.preventDefault();
+    const notes = load(K.notes, []), m = notes.find((x) => x.id === id); if (!m) return;
+    m.html = sanitize($("#mBody").innerHTML); m.updatedAt = Date.now(); save(K.notes, notes); queueSync();
+  };
   $("#mDel").onclick = async () => { if (await uiConfirm("Supprimer cette leçon ?", { ok: "Supprimer", danger: true })) { save(K.notes, load(K.notes, []).map((x) => x.id === id ? { id, date: x.date, deleted: true, updatedAt: Date.now() } : x)); queueSync(); $("#modal").hidden = true; renderList(); } };
   $("#modal").hidden = false;
 }
